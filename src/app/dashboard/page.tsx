@@ -1,31 +1,108 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useMatchStore, Match } from '@/store/useMatchStore';
 import { fetchJson } from '@/lib/api-client';
 import { 
   Calendar, 
   MapPin, 
-  TrendingUp, 
   Award, 
-  Tv, 
-  ShieldAlert, 
-  Globe, 
-  Compass,
-  ArrowRightLeft
+  ShieldAlert,
+  ArrowRightLeft,
+  Users,
+  Star,
+  TrendingUp,
+  Tv
 } from 'lucide-react';
 
-// Dynamically import CanvasWrapper with SSR disabled to prevent WebGL compilation errors on server build
-const CanvasWrapper = dynamic<{ viewMode: 'stadium' | 'globe' }>(() => import('@/components/dashboard/CanvasWrapper'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full min-h-[450px] bg-black rounded-2xl border border-white/5 flex flex-col items-center justify-center text-slate-400 font-mono text-sm">
-      <span className="h-6 w-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
-      Loading 3D Canvas Engine...
-    </div>
-  )
-});
+// Probable Playing XI squads — curated current rosters per team
+const TEAM_SQUADS: Record<string, { name: string; role: 'BAT' | 'BWL' | 'ALL' | 'WK'; rating: number }[]> = {
+  India: [
+    { name: 'Rohit Sharma', role: 'BAT', rating: 95 },
+    { name: 'Shubman Gill', role: 'BAT', rating: 88 },
+    { name: 'Virat Kohli', role: 'BAT', rating: 97 },
+    { name: 'Suryakumar Yadav', role: 'BAT', rating: 93 },
+    { name: 'KL Rahul', role: 'WK', rating: 87 },
+    { name: 'Hardik Pandya', role: 'ALL', rating: 89 },
+    { name: 'Ravindra Jadeja', role: 'ALL', rating: 91 },
+    { name: 'Axar Patel', role: 'ALL', rating: 83 },
+    { name: 'Jasprit Bumrah', role: 'BWL', rating: 98 },
+    { name: 'Mohammed Siraj', role: 'BWL', rating: 85 },
+    { name: 'Arshdeep Singh', role: 'BWL', rating: 82 },
+  ],
+  Australia: [
+    { name: 'David Warner', role: 'BAT', rating: 90 },
+    { name: 'Travis Head', role: 'BAT', rating: 89 },
+    { name: 'Steve Smith', role: 'BAT', rating: 96 },
+    { name: 'Marnus Labuschagne', role: 'BAT', rating: 91 },
+    { name: 'Glenn Maxwell', role: 'ALL', rating: 88 },
+    { name: 'Matthew Wade', role: 'WK', rating: 80 },
+    { name: 'Pat Cummins', role: 'BWL', rating: 95 },
+    { name: 'Mitchell Starc', role: 'BWL', rating: 93 },
+    { name: 'Josh Hazlewood', role: 'BWL', rating: 90 },
+    { name: 'Adam Zampa', role: 'BWL', rating: 85 },
+    { name: 'Cameron Green', role: 'ALL', rating: 82 },
+  ],
+  England: [
+    { name: 'Zak Crawley', role: 'BAT', rating: 82 },
+    { name: 'Ben Duckett', role: 'BAT', rating: 84 },
+    { name: 'Ollie Pope', role: 'BAT', rating: 85 },
+    { name: 'Joe Root', role: 'BAT', rating: 97 },
+    { name: 'Harry Brook', role: 'BAT', rating: 92 },
+    { name: 'Ben Stokes', role: 'ALL', rating: 95 },
+    { name: 'Jonny Bairstow', role: 'WK', rating: 86 },
+    { name: 'Moeen Ali', role: 'ALL', rating: 83 },
+    { name: 'Stuart Broad', role: 'BWL', rating: 88 },
+    { name: 'James Anderson', role: 'BWL', rating: 90 },
+    { name: 'Mark Wood', role: 'BWL', rating: 87 },
+  ],
+  Pakistan: [
+    { name: 'Mohammad Rizwan', role: 'WK', rating: 91 },
+    { name: 'Babar Azam', role: 'BAT', rating: 96 },
+    { name: 'Fakhar Zaman', role: 'BAT', rating: 85 },
+    { name: 'Iftikhar Ahmed', role: 'ALL', rating: 80 },
+    { name: 'Shadab Khan', role: 'ALL', rating: 84 },
+    { name: 'Imad Wasim', role: 'ALL', rating: 79 },
+    { name: 'Shaheen Afridi', role: 'BWL', rating: 94 },
+    { name: 'Naseem Shah', role: 'BWL', rating: 88 },
+    { name: 'Haris Rauf', role: 'BWL', rating: 86 },
+    { name: 'Usama Mir', role: 'BWL', rating: 78 },
+    { name: 'Saim Ayub', role: 'BAT', rating: 81 },
+  ],
+  'South Africa': [
+    { name: 'Quinton de Kock', role: 'WK', rating: 92 },
+    { name: 'Temba Bavuma', role: 'BAT', rating: 85 },
+    { name: 'Aiden Markram', role: 'BAT', rating: 87 },
+    { name: 'Rassie van der Dussen', role: 'BAT', rating: 86 },
+    { name: 'David Miller', role: 'BAT', rating: 88 },
+    { name: 'Heinrich Klaasen', role: 'WK', rating: 89 },
+    { name: 'Andile Phehlukwayo', role: 'ALL', rating: 79 },
+    { name: 'Keshav Maharaj', role: 'BWL', rating: 84 },
+    { name: 'Kagiso Rabada', role: 'BWL', rating: 95 },
+    { name: 'Anrich Nortje', role: 'BWL', rating: 90 },
+    { name: 'Tabraiz Shamsi', role: 'BWL', rating: 85 },
+  ],
+  'New Zealand': [
+    { name: 'Devon Conway', role: 'WK', rating: 87 },
+    { name: 'Finn Allen', role: 'BAT', rating: 82 },
+    { name: 'Kane Williamson', role: 'BAT', rating: 95 },
+    { name: 'Daryl Mitchell', role: 'ALL', rating: 85 },
+    { name: 'Glenn Phillips', role: 'ALL', rating: 84 },
+    { name: 'Mark Chapman', role: 'BAT', rating: 79 },
+    { name: 'Mitchell Santner', role: 'ALL', rating: 83 },
+    { name: 'Trent Boult', role: 'BWL', rating: 92 },
+    { name: 'Tim Southee', role: 'BWL', rating: 88 },
+    { name: 'Lockie Ferguson', role: 'BWL', rating: 87 },
+    { name: 'Ish Sodhi', role: 'BWL', rating: 82 },
+  ],
+};
+
+const ROLE_STYLES: Record<string, string> = {
+  BAT: 'bg-blue-950/40 text-blue-400 border-blue-500/20',
+  BWL: 'bg-red-950/40 text-red-400 border-red-500/20',
+  ALL: 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20',
+  WK: 'bg-amber-950/40 text-amber-400 border-amber-500/20',
+};
 
 export default function Dashboard() {
   const { 
@@ -35,7 +112,6 @@ export default function Dashboard() {
     setUpcomingMatches 
   } = useMatchStore();
 
-  const [viewMode, setViewMode] = useState<'stadium' | 'globe'>('stadium');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,30 +185,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Scene toggler controls */}
-        <div className="flex gap-1.5 bg-slate-900 border border-white/5 p-1 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]">
-          <button
-            onClick={() => setViewMode('stadium')}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 cursor-pointer ${
-              viewMode === 'stadium' 
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Compass size={14} />
-            Stadium Arena
-          </button>
-          <button
-            onClick={() => setViewMode('globe')}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 cursor-pointer ${
-              viewMode === 'globe' 
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Globe size={14} />
-            Global View
-          </button>
+        {/* Playing XI badge */}
+        <div className="flex items-center gap-2 bg-slate-900 border border-white/5 px-4 py-2 rounded-xl">
+          <Users size={13} className="text-emerald-400" />
+          <span className="text-xs font-mono font-semibold text-slate-300 tracking-wider">PROBABLE PLAYING XI</span>
         </div>
       </header>
 
@@ -143,7 +199,7 @@ export default function Dashboard() {
         <aside className="w-full lg:w-80 xl:w-96 border-r border-white/5 bg-slate-950/20 backdrop-blur-md overflow-y-auto p-4 flex flex-col gap-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.02)]">
           <div>
             <h2 className="text-xs uppercase font-mono tracking-widest text-slate-200 mb-2 px-1">Upcoming Fixtures</h2>
-            <p className="text-[10px] text-slate-400 mb-4 px-1 font-mono">CLICK TO RENDER DYNAMIC 3D SCENE & OUTCOME</p>
+            <p className="text-[10px] text-slate-400 mb-4 px-1 font-mono">SELECT A MATCH TO VIEW PROBABLE XI</p>
           </div>
 
           <div className="flex flex-col gap-3 flex-1">
@@ -282,9 +338,71 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* The 3D Canvas dynamic mount */}
-            <div className="flex-1 min-h-[350px] relative bg-black rounded-2xl overflow-hidden border border-white/5">
-              <CanvasWrapper viewMode={viewMode} />
+            {/* Probable Playing XI Panel */}
+            <div className="flex-1 min-h-[350px] overflow-y-auto">
+              {selectedMatch ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                  {/* Home Team XI */}
+                  <div className="bg-slate-950/60 border border-blue-500/10 rounded-2xl p-4 flex flex-col gap-3 backdrop-blur-md">
+                    <div className="flex items-center gap-2 mb-1">
+                      {selectedMatch.homeTeam.logoUrl && (
+                        <div className="w-7 h-7 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 shadow-sm overflow-hidden flex-shrink-0">
+                          <img src={selectedMatch.homeTeam.logoUrl} alt={selectedMatch.homeTeam.name} className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{selectedMatch.homeTeam.name}</h3>
+                        <p className="text-[9px] font-mono text-blue-400 tracking-widest uppercase">Home · Probable XI</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {(TEAM_SQUADS[selectedMatch.homeTeam.name] ?? []).map((player, i) => (
+                        <div key={player.name} className="flex items-center gap-2 group hover:bg-white/5 rounded-lg px-2 py-1.5 transition-colors">
+                          <span className="text-[10px] font-mono text-slate-600 w-4 text-right flex-shrink-0">{i + 1}</span>
+                          <span className="flex-1 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{player.name}</span>
+                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${ROLE_STYLES[player.role]}`}>{player.role}</span>
+                          <div className="flex items-center gap-0.5">
+                            <Star size={9} className="text-amber-400 fill-amber-400" />
+                            <span className="text-[10px] font-mono text-amber-400">{player.rating}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Away Team XI */}
+                  <div className="bg-slate-950/60 border border-purple-500/10 rounded-2xl p-4 flex flex-col gap-3 backdrop-blur-md">
+                    <div className="flex items-center gap-2 mb-1">
+                      {selectedMatch.awayTeam.logoUrl && (
+                        <div className="w-7 h-7 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 shadow-sm overflow-hidden flex-shrink-0">
+                          <img src={selectedMatch.awayTeam.logoUrl} alt={selectedMatch.awayTeam.name} className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{selectedMatch.awayTeam.name}</h3>
+                        <p className="text-[9px] font-mono text-purple-400 tracking-widest uppercase">Away · Probable XI</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {(TEAM_SQUADS[selectedMatch.awayTeam.name] ?? []).map((player, i) => (
+                        <div key={player.name} className="flex items-center gap-2 group hover:bg-white/5 rounded-lg px-2 py-1.5 transition-colors">
+                          <span className="text-[10px] font-mono text-slate-600 w-4 text-right flex-shrink-0">{i + 1}</span>
+                          <span className="flex-1 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{player.name}</span>
+                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${ROLE_STYLES[player.role]}`}>{player.role}</span>
+                          <div className="flex items-center gap-0.5">
+                            <Star size={9} className="text-amber-400 fill-amber-400" />
+                            <span className="text-[10px] font-mono text-amber-400">{player.rating}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-500 font-mono text-sm">
+                  <Users size={32} className="mr-3 opacity-30" /> Select a match to view squads
+                </div>
+              )}
             </div>
           </section>
 
