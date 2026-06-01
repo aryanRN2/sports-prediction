@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useMatchStore, Match } from '@/store/useMatchStore';
 import { fetchJson } from '@/lib/api-client';
+import Link from 'next/link';
 import { 
   Calendar, 
   MapPin, 
@@ -15,267 +16,7 @@ import {
   Tv
 } from 'lucide-react';
 
-type Player = { name: string; role: 'BAT' | 'BWL' | 'ALL' | 'WK'; rating: number };
-
-// Format-specific Probable Playing XI — researched from 2026 ICC squads (June 2026)
-// KEY RETIREMENTS: Rohit/Kohli/Jadeja (IND T20+TEST), David Warner/Starc (AUS T20),
-// Kane Williamson (NZ T20, Nov 2025), Heinrich Klaasen (SA all cricket, Jun 2025)
-const TEAM_SQUADS: Record<string, Record<string, Player[]>> = {
-  India: {
-    T20: [
-      { name: 'Suryakumar Yadav (c)', role: 'BAT', rating: 95 },
-      { name: 'Abhishek Sharma', role: 'BAT', rating: 84 },
-      { name: 'Sanju Samson', role: 'WK', rating: 86 },
-      { name: 'Tilak Varma', role: 'BAT', rating: 83 },
-      { name: 'Rinku Singh', role: 'BAT', rating: 80 },
-      { name: 'Hardik Pandya', role: 'ALL', rating: 89 },
-      { name: 'Axar Patel (vc)', role: 'ALL', rating: 87 },
-      { name: 'Washington Sundar', role: 'ALL', rating: 79 },
-      { name: 'Jasprit Bumrah', role: 'BWL', rating: 98 },
-      { name: 'Arshdeep Singh', role: 'BWL', rating: 85 },
-      { name: 'Varun Chakaravarthy', role: 'BWL', rating: 82 },
-    ],
-    ODI: [
-      { name: 'Rohit Sharma (c)', role: 'BAT', rating: 93 },
-      { name: 'Shubman Gill', role: 'BAT', rating: 89 },
-      { name: 'Virat Kohli', role: 'BAT', rating: 96 },
-      { name: 'Shreyas Iyer', role: 'BAT', rating: 84 },
-      { name: 'KL Rahul', role: 'WK', rating: 86 },
-      { name: 'Hardik Pandya', role: 'ALL', rating: 89 },
-      { name: 'Ravindra Jadeja', role: 'ALL', rating: 88 },
-      { name: 'Kuldeep Yadav', role: 'BWL', rating: 86 },
-      { name: 'Jasprit Bumrah', role: 'BWL', rating: 98 },
-      { name: 'Mohammed Siraj', role: 'BWL', rating: 84 },
-      { name: 'Arshdeep Singh', role: 'BWL', rating: 83 },
-    ],
-    TEST: [
-      { name: 'Yashasvi Jaiswal', role: 'BAT', rating: 90 },
-      { name: 'KL Rahul', role: 'BAT', rating: 84 },
-      { name: 'Shubman Gill (c)', role: 'BAT', rating: 89 },
-      { name: 'Devdutt Padikkal', role: 'BAT', rating: 78 },
-      { name: 'Sarfaraz Khan', role: 'BAT', rating: 79 },
-      { name: 'Rishabh Pant', role: 'WK', rating: 91 },
-      { name: 'Ravindra Jadeja', role: 'ALL', rating: 90 },
-      { name: 'Washington Sundar', role: 'ALL', rating: 79 },
-      { name: 'Jasprit Bumrah', role: 'BWL', rating: 98 },
-      { name: 'Mohammed Siraj', role: 'BWL', rating: 84 },
-      { name: 'Akash Deep', role: 'BWL', rating: 78 },
-    ],
-  },
-  Australia: {
-    T20: [
-      { name: 'Mitchell Marsh (c)', role: 'ALL', rating: 88 },
-      { name: 'Travis Head', role: 'BAT', rating: 92 },
-      { name: 'Josh Inglis', role: 'WK', rating: 81 },
-      { name: 'Glenn Maxwell', role: 'ALL', rating: 87 },
-      { name: 'Tim David', role: 'BAT', rating: 85 },
-      { name: 'Matthew Short', role: 'BAT', rating: 78 },
-      { name: 'Mitchell Owen', role: 'BAT', rating: 77 },
-      { name: 'Marcus Stoinis', role: 'ALL', rating: 83 },
-      { name: 'Josh Hazlewood', role: 'BWL', rating: 89 },
-      { name: 'Adam Zampa', role: 'BWL', rating: 86 },
-      { name: 'Nathan Ellis', role: 'BWL', rating: 79 },
-    ],
-    ODI: [
-      { name: 'Pat Cummins (c)', role: 'BWL', rating: 94 },
-      { name: 'Travis Head', role: 'BAT', rating: 91 },
-      { name: 'David Warner', role: 'BAT', rating: 89 },
-      { name: 'Steve Smith', role: 'BAT', rating: 95 },
-      { name: 'Marnus Labuschagne', role: 'BAT', rating: 89 },
-      { name: 'Josh Inglis', role: 'WK', rating: 82 },
-      { name: 'Glenn Maxwell', role: 'ALL', rating: 88 },
-      { name: 'Mitchell Starc', role: 'BWL', rating: 91 },
-      { name: 'Josh Hazlewood', role: 'BWL', rating: 89 },
-      { name: 'Adam Zampa', role: 'BWL', rating: 86 },
-      { name: 'Marcus Stoinis', role: 'ALL', rating: 82 },
-    ],
-    TEST: [
-      { name: 'Usman Khawaja', role: 'BAT', rating: 87 },
-      { name: 'Steve Smith', role: 'BAT', rating: 96 },
-      { name: 'Marnus Labuschagne', role: 'BAT', rating: 91 },
-      { name: 'Travis Head', role: 'BAT', rating: 90 },
-      { name: 'Alex Carey', role: 'WK', rating: 81 },
-      { name: 'Cameron Green', role: 'ALL', rating: 83 },
-      { name: 'Pat Cummins (c)', role: 'BWL', rating: 94 },
-      { name: 'Mitchell Starc', role: 'BWL', rating: 92 },
-      { name: 'Josh Hazlewood', role: 'BWL', rating: 89 },
-      { name: 'Nathan Lyon', role: 'BWL', rating: 87 },
-      { name: 'Todd Murphy', role: 'BWL', rating: 77 },
-    ],
-  },
-  England: {
-    T20: [
-      { name: 'Harry Brook (c)', role: 'BAT', rating: 92 },
-      { name: 'Phil Salt', role: 'WK', rating: 86 },
-      { name: 'Ben Duckett', role: 'BAT', rating: 84 },
-      { name: 'Jos Buttler', role: 'WK', rating: 84 },
-      { name: 'Jacob Bethell', role: 'ALL', rating: 82 },
-      { name: 'Will Jacks', role: 'ALL', rating: 81 },
-      { name: 'Sam Curran', role: 'ALL', rating: 83 },
-      { name: 'Adil Rashid', role: 'BWL', rating: 85 },
-      { name: 'Jofra Archer', role: 'BWL', rating: 90 },
-      { name: 'Rehan Ahmed', role: 'BWL', rating: 79 },
-      { name: 'Mark Wood', role: 'BWL', rating: 88 },
-    ],
-    ODI: [
-      { name: 'Jos Buttler (c)', role: 'WK', rating: 88 },
-      { name: 'Zak Crawley', role: 'BAT', rating: 82 },
-      { name: 'Ben Duckett', role: 'BAT', rating: 84 },
-      { name: 'Joe Root', role: 'BAT', rating: 96 },
-      { name: 'Harry Brook', role: 'BAT', rating: 91 },
-      { name: 'Ben Stokes', role: 'ALL', rating: 92 },
-      { name: 'Liam Livingstone', role: 'ALL', rating: 83 },
-      { name: 'Sam Curran', role: 'ALL', rating: 83 },
-      { name: 'Adil Rashid', role: 'BWL', rating: 85 },
-      { name: 'Jofra Archer', role: 'BWL', rating: 90 },
-      { name: 'Mark Wood', role: 'BWL', rating: 87 },
-    ],
-    TEST: [
-      { name: 'Zak Crawley', role: 'BAT', rating: 82 },
-      { name: 'Ben Duckett', role: 'BAT', rating: 84 },
-      { name: 'Ollie Pope', role: 'BAT', rating: 85 },
-      { name: 'Joe Root', role: 'BAT', rating: 97 },
-      { name: 'Harry Brook', role: 'BAT', rating: 92 },
-      { name: 'Ben Stokes (c)', role: 'ALL', rating: 93 },
-      { name: 'Jonny Bairstow', role: 'WK', rating: 85 },
-      { name: 'Chris Woakes', role: 'ALL', rating: 84 },
-      { name: 'Stuart Broad', role: 'BWL', rating: 86 },
-      { name: 'James Anderson', role: 'BWL', rating: 88 },
-      { name: 'Mark Wood', role: 'BWL', rating: 87 },
-    ],
-  },
-  Pakistan: {
-    T20: [
-      { name: 'Salman Ali Agha (c)', role: 'ALL', rating: 83 },
-      { name: 'Babar Azam', role: 'BAT', rating: 94 },
-      { name: 'Sahibzada Farhan', role: 'WK', rating: 78 },
-      { name: 'Fakhar Zaman', role: 'BAT', rating: 85 },
-      { name: 'Saim Ayub', role: 'BAT', rating: 82 },
-      { name: 'Usman Khan', role: 'WK', rating: 77 },
-      { name: 'Shadab Khan', role: 'ALL', rating: 84 },
-      { name: 'Mohammad Nawaz', role: 'ALL', rating: 80 },
-      { name: 'Shaheen Shah Afridi', role: 'BWL', rating: 93 },
-      { name: 'Naseem Shah', role: 'BWL', rating: 88 },
-      { name: 'Abrar Ahmed', role: 'BWL', rating: 80 },
-    ],
-    ODI: [
-      { name: 'Babar Azam (c)', role: 'BAT', rating: 95 },
-      { name: 'Mohammad Rizwan', role: 'WK', rating: 91 },
-      { name: 'Fakhar Zaman', role: 'BAT', rating: 85 },
-      { name: 'Imam-ul-Haq', role: 'BAT', rating: 80 },
-      { name: 'Saud Shakeel', role: 'BAT', rating: 82 },
-      { name: 'Shadab Khan', role: 'ALL', rating: 84 },
-      { name: 'Salman Ali Agha', role: 'ALL', rating: 82 },
-      { name: 'Shaheen Shah Afridi', role: 'BWL', rating: 93 },
-      { name: 'Naseem Shah', role: 'BWL', rating: 88 },
-      { name: 'Haris Rauf', role: 'BWL', rating: 86 },
-      { name: 'Mohammad Wasim Jr', role: 'BWL', rating: 80 },
-    ],
-    TEST: [
-      { name: 'Shan Masood (c)', role: 'BAT', rating: 82 },
-      { name: 'Imam-ul-Haq', role: 'BAT', rating: 80 },
-      { name: 'Babar Azam', role: 'BAT', rating: 93 },
-      { name: 'Saud Shakeel', role: 'BAT', rating: 84 },
-      { name: 'Mohammad Rizwan', role: 'WK', rating: 89 },
-      { name: 'Salman Ali Agha', role: 'ALL', rating: 81 },
-      { name: 'Aamer Jamal', role: 'ALL', rating: 79 },
-      { name: 'Shaheen Shah Afridi', role: 'BWL', rating: 92 },
-      { name: 'Naseem Shah', role: 'BWL', rating: 88 },
-      { name: 'Haris Rauf', role: 'BWL', rating: 84 },
-      { name: 'Sajid Khan', role: 'BWL', rating: 80 },
-    ],
-  },
-  'South Africa': {
-    T20: [
-      { name: 'Aiden Markram (c)', role: 'BAT', rating: 88 },
-      { name: 'Ryan Rickelton', role: 'BAT', rating: 80 },
-      { name: 'Quinton de Kock', role: 'WK', rating: 91 },
-      { name: 'Tristan Stubbs', role: 'BAT', rating: 82 },
-      { name: 'David Miller', role: 'BAT', rating: 87 },
-      { name: 'Dewald Brevis', role: 'BAT', rating: 83 },
-      { name: 'Marco Jansen', role: 'ALL', rating: 83 },
-      { name: 'Keshav Maharaj', role: 'BWL', rating: 84 },
-      { name: 'Kagiso Rabada', role: 'BWL', rating: 94 },
-      { name: 'Anrich Nortje', role: 'BWL', rating: 90 },
-      { name: 'Kwena Maphaka', role: 'BWL', rating: 79 },
-    ],
-    ODI: [
-      { name: 'Temba Bavuma (c)', role: 'BAT', rating: 85 },
-      { name: 'Quinton de Kock', role: 'WK', rating: 92 },
-      { name: 'Aiden Markram', role: 'BAT', rating: 87 },
-      { name: 'Rassie van der Dussen', role: 'BAT', rating: 86 },
-      { name: 'David Miller', role: 'BAT', rating: 88 },
-      { name: 'Tristan Stubbs', role: 'BAT', rating: 81 },
-      { name: 'Marco Jansen', role: 'ALL', rating: 82 },
-      { name: 'Keshav Maharaj', role: 'BWL', rating: 84 },
-      { name: 'Kagiso Rabada', role: 'BWL', rating: 94 },
-      { name: 'Anrich Nortje', role: 'BWL', rating: 90 },
-      { name: 'Tabraiz Shamsi', role: 'BWL', rating: 84 },
-    ],
-    TEST: [
-      { name: 'Neil Brand (c)', role: 'BAT', rating: 80 },
-      { name: 'Aiden Markram', role: 'BAT', rating: 86 },
-      { name: 'Rassie van der Dussen', role: 'BAT', rating: 84 },
-      { name: 'Ryan Rickelton', role: 'BAT', rating: 79 },
-      { name: 'Kyle Verreynne', role: 'WK', rating: 80 },
-      { name: 'Tristan Stubbs', role: 'BAT', rating: 80 },
-      { name: 'Marco Jansen', role: 'ALL', rating: 82 },
-      { name: 'Keshav Maharaj', role: 'BWL', rating: 85 },
-      { name: 'Kagiso Rabada', role: 'BWL', rating: 95 },
-      { name: 'Anrich Nortje', role: 'BWL', rating: 90 },
-      { name: 'Lungi Ngidi', role: 'BWL', rating: 83 },
-    ],
-  },
-  'New Zealand': {
-    T20: [
-      { name: 'Mitchell Santner (c)', role: 'ALL', rating: 84 },
-      { name: 'Finn Allen', role: 'BAT', rating: 83 },
-      { name: 'Devon Conway', role: 'WK', rating: 87 },
-      { name: 'Rachin Ravindra', role: 'ALL', rating: 85 },
-      { name: 'Daryl Mitchell', role: 'ALL', rating: 85 },
-      { name: 'Glenn Phillips', role: 'ALL', rating: 84 },
-      { name: 'Mark Chapman', role: 'BAT', rating: 79 },
-      { name: 'Michael Bracewell', role: 'ALL', rating: 80 },
-      { name: 'Lockie Ferguson', role: 'BWL', rating: 87 },
-      { name: 'Ish Sodhi', role: 'BWL', rating: 82 },
-      { name: 'Matt Henry', role: 'BWL', rating: 84 },
-    ],
-    ODI: [
-      { name: 'Kane Williamson (c)', role: 'BAT', rating: 95 },
-      { name: 'Devon Conway', role: 'WK', rating: 87 },
-      { name: 'Finn Allen', role: 'BAT', rating: 82 },
-      { name: 'Daryl Mitchell', role: 'ALL', rating: 85 },
-      { name: 'Glenn Phillips', role: 'ALL', rating: 84 },
-      { name: 'Tom Latham', role: 'WK', rating: 82 },
-      { name: 'Mitchell Santner', role: 'ALL', rating: 83 },
-      { name: 'Trent Boult', role: 'BWL', rating: 90 },
-      { name: 'Tim Southee', role: 'BWL', rating: 85 },
-      { name: 'Lockie Ferguson', role: 'BWL', rating: 86 },
-      { name: 'Ish Sodhi', role: 'BWL', rating: 82 },
-    ],
-    TEST: [
-      { name: 'Kane Williamson (c)', role: 'BAT', rating: 95 },
-      { name: 'Tom Latham', role: 'WK', rating: 85 },
-      { name: 'Devon Conway', role: 'BAT', rating: 84 },
-      { name: 'Daryl Mitchell', role: 'ALL', rating: 85 },
-      { name: 'Rachin Ravindra', role: 'ALL', rating: 83 },
-      { name: 'Henry Nicholls', role: 'BAT', rating: 79 },
-      { name: 'Mitchell Santner', role: 'ALL', rating: 83 },
-      { name: 'Kyle Jamieson', role: 'ALL', rating: 82 },
-      { name: 'Tim Southee', role: 'BWL', rating: 86 },
-      { name: 'Matt Henry', role: 'BWL', rating: 84 },
-      { name: 'Ish Sodhi', role: 'BWL', rating: 81 },
-    ],
-  },
-};
-
-// Helper: pick the right XI for a team based on match format
-function getSquad(teamName: string, format: string): Player[] {
-  const teamSquads = TEAM_SQUADS[teamName];
-  if (!teamSquads) return [];
-  // Normalise: "T20" format string maps to "T20" key, "ODI" -> "ODI", "TEST" -> "TEST"
-  return teamSquads[format] ?? teamSquads['T20'] ?? [];
-}
+import { getSquad, Player } from '@/lib/squads';
 
 const ROLE_STYLES: Record<string, string> = {
   BAT: 'bg-blue-950/40 text-blue-400 border-blue-500/20',
@@ -295,14 +36,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
-  const [historyMatches, setHistoryMatches] = useState<Match[]>([]);
-  const [accuracy, setAccuracy] = useState<number>(0);
-  const [totalPredictions, setTotalPredictions] = useState<number>(0);
-  const [correctPredictions, setCorrectPredictions] = useState<number>(0);
-  const [selectedCompletedMatchId, setSelectedCompletedMatchId] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
-
   // Fetch scheduled cricket fixtures and predictions
   useEffect(() => {
     async function loadFixtures() {
@@ -312,7 +45,6 @@ export default function Dashboard() {
         if (data.success) {
           setUpcomingMatches(data.matches);
           if (data.matches.length > 0) {
-            // Auto-select the first fixture
             setSelectedMatch(data.matches[0].id);
           }
         } else {
@@ -325,40 +57,10 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
-    
-    async function loadHistory() {
-      try {
-        setHistoryLoading(true);
-        const data = await fetchJson<{
-          success: boolean;
-          matches: Match[];
-          accuracy: number;
-          totalPredictions: number;
-          correctPredictions: number;
-        }>('/api/history');
-        if (data.success) {
-          setHistoryMatches(data.matches);
-          setAccuracy(data.accuracy);
-          setTotalPredictions(data.totalPredictions);
-          setCorrectPredictions(data.correctPredictions);
-          if (data.matches.length > 0) {
-            setSelectedCompletedMatchId(data.matches[0].id);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load history:', err);
-      } finally {
-        setHistoryLoading(false);
-      }
-    }
-
     loadFixtures();
-    loadHistory();
   }, [setUpcomingMatches, setSelectedMatch]);
 
-  const selectedMatch = activeTab === 'upcoming' 
-    ? (upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null)
-    : (historyMatches.find((m: Match) => m.id === selectedCompletedMatchId) || null);
+  const selectedMatch = upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null;
 
   if (loading) {
     return (
@@ -396,233 +98,111 @@ export default function Dashboard() {
     <div className="min-h-screen bg-black text-slate-100 flex flex-col select-none">
       {/* Sleek cybernetic dashboard header */}
       <header className="border-b border-white/5 bg-slate-950/80 backdrop-blur-md px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
-        <div className="flex items-center gap-2 min-w-0">
+        <Link href="/" className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity">
           <div className="min-w-0">
             <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2 truncate">
               CricPredict AI <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full border border-blue-500/30 bg-blue-950/30 text-blue-400 font-semibold tracking-wider shrink-0">v2.0</span>
             </h1>
             <p className="text-[9px] text-slate-400 font-mono tracking-widest uppercase hidden sm:block">SYSTEM: DETERMINISTIC REGRESSION CORE ONLINE</p>
           </div>
-        </div>
+        </Link>
 
-        {/* Playing XI badge */}
-        <div className="flex items-center gap-1.5 bg-slate-900 border border-white/5 px-3 py-1.5 rounded-xl shrink-0">
-          <Users size={12} className="text-emerald-400" />
-          <span className="text-[10px] font-mono font-semibold text-slate-300 tracking-wider hidden sm:inline">PROBABLE PLAYING XI</span>
-          <span className="text-[10px] font-mono font-semibold text-slate-300 tracking-wider sm:hidden">PLAYING XI</span>
+        <div className="flex items-center gap-2">
+          <Link 
+            href="/"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-white/10 bg-slate-900 hover:bg-slate-800 text-[10px] font-mono font-bold text-slate-300 transition-colors shrink-0"
+          >
+            ← HOME
+          </Link>
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-white/5 px-3 py-1.5 rounded-xl shrink-0">
+            <Users size={12} className="text-emerald-400" />
+            <span className="text-[10px] font-mono font-semibold text-slate-300 tracking-wider hidden sm:inline">PROBABLE PLAYING XI</span>
+            <span className="text-[10px] font-mono font-semibold text-slate-300 tracking-wider sm:hidden">PLAYING XI</span>
+          </div>
         </div>
       </header>
 
       {/* Main layout — stacks vertically on mobile, side-by-side on lg+ */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden lg:max-h-[calc(100vh-61px)] bg-black">
 
-        {/* PANEL 1: Fixtures & History — horizontal scroll on mobile, vertical sidebar on desktop */}
+        {/* PANEL 1: Fixtures — horizontal scroll on mobile, vertical sidebar on desktop */}
         <aside className="w-full lg:w-80 xl:w-96 border-b lg:border-b-0 lg:border-r border-white/5 bg-slate-950/20 backdrop-blur-md lg:overflow-y-auto p-3 lg:p-4 flex flex-col gap-3">
-          {/* Tab Switcher */}
-          <div className="flex border border-white/5 p-1 bg-slate-950/60 rounded-xl mb-1 shrink-0">
-            <button
-              onClick={() => {
-                setActiveTab('upcoming');
-                if (upcomingMatches.length > 0 && !upcomingMatches.find(m => m.id === selectedMatchId)) {
-                  setSelectedMatch(upcomingMatches[0].id);
-                }
-              }}
-              className={`flex-1 py-1.5 text-center text-[10px] font-mono font-semibold rounded-lg transition-all cursor-pointer ${
-                activeTab === 'upcoming'
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              UPCOMING
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('history');
-                if (historyMatches.length > 0 && !historyMatches.find(m => m.id === selectedCompletedMatchId)) {
-                  setSelectedCompletedMatchId(historyMatches[0].id);
-                }
-              }}
-              className={`flex-1 py-1.5 text-center text-[10px] font-mono font-semibold rounded-lg transition-all cursor-pointer ${
-                activeTab === 'history'
-                  ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              HISTORY
-            </button>
-          </div>
-
           <div className="hidden lg:block">
-            <h2 className="text-xs uppercase font-mono tracking-widest text-slate-200 mb-1 px-1">
-              {activeTab === 'upcoming' ? 'Upcoming Fixtures' : 'Prediction History'}
-            </h2>
-            <p className="text-[10px] text-slate-400 mb-3 px-1 font-mono">
-              {activeTab === 'upcoming' ? 'SELECT A MATCH TO VIEW PROBABLE XI' : 'SELECT A PAST MATCH TO REVIEW RESULT'}
-            </p>
+            <h2 className="text-xs uppercase font-mono tracking-widest text-slate-200 mb-1 px-1">Upcoming Fixtures</h2>
+            <p className="text-[10px] text-slate-400 mb-3 px-1 font-mono">SELECT A MATCH TO VIEW PROBABLE XI</p>
           </div>
 
           {/* Mobile: horizontal scroll carousel */}
           <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-1 lg:pb-0 snap-x snap-mandatory lg:snap-none">
-            {activeTab === 'upcoming' ? (
-              upcomingMatches.map((match: Match) => {
-                const isSelected = match.id === selectedMatchId;
-                const scheduledDate = new Date(match.scheduledAt);
+            {upcomingMatches.map((match: Match) => {
+              const isSelected = match.id === selectedMatchId;
+              const scheduledDate = new Date(match.scheduledAt);
 
-                return (
-                  <div
-                    key={match.id}
-                    onClick={() => setSelectedMatch(match.id)}
-                    className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
-                      isSelected
-                        ? 'border-blue-500/40 bg-blue-950/20 shadow-[0_0_15px_rgba(59,130,246,0.08)]'
-                        : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-blue-500 to-purple-500" />
-                    )}
+              return (
+                <div
+                  key={match.id}
+                  onClick={() => setSelectedMatch(match.id)}
+                  className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
+                    isSelected
+                      ? 'border-blue-500/40 bg-blue-950/20 shadow-[0_0_15px_rgba(59,130,246,0.08)]'
+                      : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-blue-500 to-purple-500" />
+                  )}
 
-                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={10} />
-                        {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
-                        match.format === 'TEST'
-                          ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
-                          : match.format === 'ODI'
-                          ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
-                          : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
-                      }`}>
-                        {match.format}
-                      </span>
+                  <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={10} />
+                      {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
+                      match.format === 'TEST'
+                        ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
+                        : match.format === 'ODI'
+                        ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
+                        : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
+                    }`}>
+                      {match.format}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {match.homeTeam.logoUrl && (
+                        <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                          <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
                     </div>
-
-                    <div className="flex justify-between items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        {match.homeTeam.logoUrl && (
-                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                            <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
-                          </div>
-                        )}
-                        <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
-                        {match.awayTeam.logoUrl && (
-                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                            <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin size={9} />
-                        {match.venue.city}
-                      </span>
-                      {match.prediction && (
-                        <span className="text-[9px] font-semibold text-orange-400 flex items-center gap-0.5 bg-orange-950/20 border border-orange-500/20 px-1.5 py-0.5 rounded font-mono shrink-0">
-                          <Award size={9} />
-                          {match.prediction.homeWinConfidence >= match.prediction.awayWinConfidence ? match.homeTeam.shortName : match.awayTeam.shortName}
-                        </span>
+                    <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
+                      {match.awayTeam.logoUrl && (
+                        <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                          <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
+                        </div>
                       )}
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              historyMatches.map((match: Match) => {
-                const isSelected = match.id === selectedCompletedMatchId;
-                const scheduledDate = new Date(match.scheduledAt);
-                const isCorrect = match.prediction && match.actualWinnerId && match.prediction.predictedWinnerId === match.actualWinnerId;
 
-                return (
-                  <div
-                    key={match.id}
-                    onClick={() => setSelectedCompletedMatchId(match.id)}
-                    className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
-                      isSelected
-                        ? 'border-purple-500/40 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.08)]'
-                        : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-purple-500 to-pink-500" />
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin size={9} />
+                      {match.venue.city}
+                    </span>
+                    {match.prediction && (
+                      <span className="text-[9px] font-semibold text-orange-400 flex items-center gap-0.5 bg-orange-950/20 border border-orange-500/20 px-1.5 py-0.5 rounded font-mono shrink-0">
+                        <Award size={9} />
+                        {match.prediction.homeWinConfidence >= match.prediction.awayWinConfidence ? match.homeTeam.shortName : match.awayTeam.shortName}
+                      </span>
                     )}
-
-                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={10} />
-                        {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
-                          match.format === 'TEST'
-                            ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
-                            : match.format === 'ODI'
-                            ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
-                            : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
-                        }`}>
-                          {match.format}
-                        </span>
-                        <span className={`px-1.5 py-0.5 rounded font-mono text-[8px] font-extrabold uppercase ${
-                          isCorrect 
-                            ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/20' 
-                            : 'bg-rose-950/30 text-rose-400 border border-rose-500/20'
-                        }`}>
-                          {isCorrect ? '✓ CORRECT' : '✗ WRONG'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        {match.homeTeam.logoUrl && (
-                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                            <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
-                          </div>
-                        )}
-                        <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
-                        {match.awayTeam.logoUrl && (
-                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                            <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin size={9} />
-                        {match.venue.city}
-                      </span>
-                      {match.prediction && (
-                        <span className={`text-[9px] font-semibold flex items-center gap-0.5 border px-1.5 py-0.5 rounded font-mono shrink-0 ${
-                          isCorrect 
-                            ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-400' 
-                            : 'bg-rose-950/20 border-rose-500/20 text-rose-400'
-                        }`}>
-                          <Award size={9} />
-                          {match.prediction.predictedWinnerId === match.homeTeam.id ? match.homeTeam.shortName : match.awayTeam.shortName}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                );
-              })
-            )}
-            {activeTab === 'history' && historyMatches.length === 0 && (
-              <div className="text-center py-6 text-slate-500 text-xs font-mono w-full">
-                No prediction history available yet.
-              </div>
-            )}
+                </div>
+              );
+            })}
           </div>
         </aside>
 
@@ -632,55 +212,9 @@ export default function Dashboard() {
           {/* Match overview bar */}
           <section className="p-3 lg:p-4 flex flex-col gap-3 lg:overflow-y-auto">
 
-            {/* Glowing Accuracy Stats Display (History tab only) */}
-            {activeTab === 'history' && (
-              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-purple-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-                {/* Glowing neon bg lines */}
-                <div className="absolute -top-12 -left-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-pink-500/10 rounded-full blur-2xl pointer-events-none" />
-                
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
-                    <TrendingUp size={24} className="animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-white tracking-tight uppercase font-mono">Prediction Engine Accuracy</h3>
-                    <p className="text-[9px] text-slate-400 font-mono tracking-wider mt-0.5">COMPARING AI FORECASTS TO REAL MATCH OUTCOMES</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6 relative z-10">
-                  <div className="flex flex-col items-center border-r border-white/5 pr-6">
-                    <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-                      {accuracy}%
-                    </span>
-                    <span className="text-[8px] font-mono text-slate-400 uppercase tracking-widest mt-0.5">Accuracy</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-center font-mono">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-white">{totalPredictions}</span>
-                      <span className="text-[8px] text-slate-500 uppercase">Total</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-emerald-400">{correctPredictions}</span>
-                      <span className="text-[8px] text-slate-500 uppercase">Correct</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-rose-400">{totalPredictions - correctPredictions}</span>
-                      <span className="text-[8px] text-slate-500 uppercase">Wrong</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Match header */}
             {selectedMatch && (
-              <div className={`bg-slate-950/60 border rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all ${
-                activeTab === 'history' 
-                  ? 'border-purple-500/10' 
-                  : 'border-white/5'
-              }`}>
+              <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] backdrop-blur-md">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono flex-wrap">
                     <span>{selectedMatch.venue.name}</span>
@@ -704,35 +238,14 @@ export default function Dashboard() {
                   </h3>
                 </div>
 
-                {activeTab === 'upcoming' ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] uppercase font-mono text-slate-400">Forecast:</span>
-                    <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold">
-                      <span className="text-blue-400 px-2">{selectedMatch.homeTeam.shortName} {Math.round((selectedMatch.prediction?.homeWinConfidence ?? 0.5) * 100)}%</span>
-                      <span className="text-slate-700">|</span>
-                      <span className="text-purple-400 px-2">{selectedMatch.awayTeam.shortName} {Math.round((selectedMatch.prediction?.awayWinConfidence ?? 0.5) * 100)}%</span>
-                    </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] uppercase font-mono text-slate-400">Forecast:</span>
+                  <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold">
+                    <span className="text-blue-400 px-2">{selectedMatch.homeTeam.shortName} {Math.round((selectedMatch.prediction?.homeWinConfidence ?? 0.5) * 100)}%</span>
+                    <span className="text-slate-700">|</span>
+                    <span className="text-purple-400 px-2">{selectedMatch.awayTeam.shortName} {Math.round((selectedMatch.prediction?.awayWinConfidence ?? 0.5) * 100)}%</span>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] uppercase font-mono text-slate-400">Outcome:</span>
-                    {selectedMatch.actualWinnerId ? (
-                      <div className={`inline-flex rounded-lg border p-1 text-[11px] font-mono font-bold ${
-                        selectedMatch.prediction && selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId
-                          ? 'bg-emerald-950/30 border-emerald-500/20 text-emerald-400'
-                          : 'bg-rose-950/30 border-rose-500/20 text-rose-400'
-                      }`}>
-                        <span className="px-2">
-                          Winner: {selectedMatch.actualWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold text-slate-400">
-                        <span className="px-2">No Result / Draw</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -750,9 +263,7 @@ export default function Dashboard() {
                       )}
                       <div>
                         <h3 className="text-sm font-bold text-white leading-tight">{selectedMatch.homeTeam.name}</h3>
-                        <p className="text-[9px] font-mono text-blue-400 tracking-widest uppercase">
-                          {activeTab === 'upcoming' ? 'Home · Probable XI' : 'Home · Squad'}
-                        </p>
+                        <p className="text-[9px] font-mono text-blue-400 tracking-widest uppercase">Home · Probable XI</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -785,9 +296,7 @@ export default function Dashboard() {
                       )}
                       <div>
                         <h3 className="text-sm font-bold text-white leading-tight">{selectedMatch.awayTeam.name}</h3>
-                        <p className="text-[9px] font-mono text-purple-400 tracking-widest uppercase">
-                          {activeTab === 'upcoming' ? 'Away · Probable XI' : 'Away · Squad'}
-                        </p>
+                        <p className="text-[9px] font-mono text-purple-400 tracking-widest uppercase">Away · Probable XI</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -861,7 +370,7 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                      <span className="text-4xl font-extrabold text-purple-500 tracking-tighter drop-shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+                      <span className="text-4xl font-extrabold text-purple-500 tracking-tighter drop-shadow-[0_0_10px_rgba(168,85,247,0.35)]">
                         {Math.round(selectedMatch.prediction.awayWinConfidence * 100)}<span className="text-base font-light text-purple-400">%</span>
                       </span>
                     </div>
@@ -878,26 +387,6 @@ export default function Dashboard() {
                       {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name}
                     </span>
                   </div>
-
-                  {activeTab === 'history' && selectedMatch.actualWinnerId && (
-                    <div className={`w-full max-w-md p-3 rounded-xl border font-mono text-xs mt-3 flex items-center justify-center gap-2 ${
-                      selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId
-                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
-                        : 'bg-rose-950/30 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
-                    }`}>
-                      {selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId ? (
-                        <>
-                          <Award size={14} className="shrink-0 animate-bounce" />
-                          <span>AI FORECAST ACCURATE: Predicted {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} successfully!</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldAlert size={14} className="shrink-0" />
-                          <span>AI FORECAST MISSED: Predicted {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} but {selectedMatch.actualWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} won.</span>
-                        </>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Factor breakdown — 2-col grid on mobile */}
@@ -936,4 +425,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

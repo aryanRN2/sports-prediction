@@ -122,24 +122,54 @@ export default function Home() {
         </h1>
 
         {/* Actions - Stylish Neon-accented Buttons */}
-        <div className="flex flex-col sm:flex-row gap-5 items-center justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center flex-wrap">
           <Link
             href="/dashboard"
-            className="group relative flex h-14 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-orange-500 p-[1.5px] shadow-[0_0_25px_rgba(59,130,246,0.25)] hover:shadow-[0_0_35px_rgba(168,85,247,0.4)] transition-all duration-300"
+            className="group relative flex h-14 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-8 text-sm font-semibold text-white transition-all duration-300 hover:from-blue-600 hover:to-indigo-700 hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] shadow-[0_0_15px_rgba(59,130,246,0.2)]"
           >
-            <span className="flex h-full w-full items-center justify-center rounded-[11px] bg-black px-8 text-sm font-extrabold text-white transition-colors duration-300 group-hover:bg-slate-950/20">
-              Launch Dashboard
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1.5 text-blue-400" />
-            </span>
+            Launch Live Predictions
+            <svg
+              className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              />
+            </svg>
+          </Link>
+
+          <Link
+            href="/history"
+            className="group relative flex h-14 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 px-8 text-sm font-semibold text-white transition-all duration-300 hover:from-fuchsia-700 hover:to-purple-700 hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+          >
+            Prediction History
+            <svg
+              className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
           </Link>
           
           <a
-            href="https://me-aryan.vercel.app/"
+            href="https://github.com/aryanRN2/sports-prediction"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-14 items-center justify-center rounded-xl border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 px-8 text-sm font-bold text-slate-300 hover:text-white transition-all duration-300 backdrop-blur-md shadow-sm"
+            className="flex h-14 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 px-8 text-sm font-semibold text-slate-300 hover:text-white transition-all duration-300 backdrop-blur-md"
           >
-            About Me
+            View Repository
           </a>
         </div>
       </main>

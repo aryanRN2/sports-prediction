@@ -36,89 +36,159 @@ const MOCK_FIXTURES = [
   { homeIndex: 3, awayIndex: 5, venueIndex: 3, format: MatchFormat.T20, daysOffset: 11, apiId: 'fixt-06' }, // PAK vs NZL at Lahore
 ];
 
+// Setup completed fixtures for history testing
+const MOCK_COMPLETED_FIXTURES = [
+  { homeIndex: 0, awayIndex: 1, venueIndex: 0, format: MatchFormat.T20, daysOffset: -2, apiId: 'fixt-comp-01', winnerIndex: 0 }, // IND vs AUS at Mumbai (Winner: IND, Prediction: IND - CORRECT)
+  { homeIndex: 2, awayIndex: 3, venueIndex: 2, format: MatchFormat.TEST, daysOffset: -4, apiId: 'fixt-comp-02', winnerIndex: 2 }, // ENG vs PAK at London (Winner: ENG, Prediction was PAK (seed-based) - WRONG)
+  { homeIndex: 4, awayIndex: 5, venueIndex: 4, format: MatchFormat.ODI, daysOffset: -6, apiId: 'fixt-comp-03', winnerIndex: 5 }, // RSA vs NZL at Cape Town (Winner: NZL, Prediction: NZL - CORRECT)
+];
+
 export async function GET() {
   try {
-    const matchCount = await prisma.match.count();
+    // Check if the mock fixtures are already seeded (by looking for our mock API IDs)
+    const mockMatchCount = await prisma.match.count({
+      where: {
+        apiFixtureId: {
+          in: [...MOCK_FIXTURES.map(f => f.apiId), ...MOCK_COMPLETED_FIXTURES.map(f => f.apiId)]
+        }
+      }
+    });
+    const expectedMockCount = MOCK_FIXTURES.length + MOCK_COMPLETED_FIXTURES.length;
 
-    // ─── Seed path: only runs ONCE when DB is empty ───────────────────────────
-    if (matchCount === 0) {
-      console.log('Database empty. Seeding real matches from CricAPI...');
+    // ─── Seed path: runs if any of our expected mock fixtures are missing ───────────────────────────
+    if (mockMatchCount < expectedMockCount) {
+      console.log('Seeding/Restoring missing mock matches and history fixtures...');
+      
+      // Always seed teams first so we have referenceable team IDs
+      const dbTeams = await Promise.all(
+        TEAMS.map(t =>
+          prisma.team.upsert({
+            where: { name: t.name },
+            update: { logoUrl: t.logoUrl },
+            create: { name: t.name, shortName: t.shortName, logoUrl: t.logoUrl },
+          })
+        )
+      );
+
+      // Always seed venues
+      const dbVenues = await Promise.all(
+        VENUES.map(v =>
+          prisma.venue.upsert({
+            where: { name: v.name },
+            update: {},
+            create: {
+              name: v.name,
+              city: v.city,
+              country: v.country,
+              latitude: v.latitude,
+              longitude: v.longitude,
+            },
+          })
+        )
+      );
+
+      // Seed mock upcoming matches (always seed these so they are guaranteed to be in the predictions)
+      const now = new Date();
+      for (const f of MOCK_FIXTURES) {
+        const homeTeam = dbTeams.find(t => t.name === TEAMS[f.homeIndex].name);
+        const awayTeam = dbTeams.find(t => t.name === TEAMS[f.awayIndex].name);
+        const venue = dbVenues.find(v => v.name === VENUES[f.venueIndex].name);
+
+        if (homeTeam && awayTeam && venue) {
+          const scheduledAt = new Date(now.getTime() + f.daysOffset * 24 * 60 * 60 * 1000);
+
+          const matchObj = await prisma.match.upsert({
+            where: { apiFixtureId: f.apiId },
+            update: { scheduledAt, status: MatchStatus.SCHEDULED },
+            create: {
+              apiFixtureId: f.apiId,
+              homeTeamId: homeTeam.id,
+              awayTeamId: awayTeam.id,
+              venueId: venue.id,
+              scheduledAt,
+              format: f.format,
+              status: MatchStatus.SCHEDULED,
+            },
+          });
+
+          const predResult = await calculatePrediction(matchObj.id);
+          await prisma.prediction.upsert({
+            where: { matchId: matchObj.id },
+            update: {
+              homeWinConfidence: predResult.homeWinConfidence,
+              awayWinConfidence: predResult.awayWinConfidence,
+              predictedWinnerId: predResult.predictedWinnerId,
+              featureSnapshot: predResult.features,
+            },
+            create: {
+              matchId: matchObj.id,
+              homeWinConfidence: predResult.homeWinConfidence,
+              awayWinConfidence: predResult.awayWinConfidence,
+              predictedWinnerId: predResult.predictedWinnerId,
+              featureSnapshot: predResult.features,
+            },
+          });
+        }
+      }
+
+      // Try syncing other real matches from CricAPI in the background as additional fixtures
       try {
         await syncUpcomingMatches();
-        console.log('CricAPI sync successful.');
+        console.log('CricAPI sync completed.');
       } catch (err) {
-        console.error('Failed to sync real matches on initial boot, falling back to mock seeding:', err);
-        
-        // Seed Teams (parallel)
-        const dbTeams = await Promise.all(
-          TEAMS.map(t =>
-            prisma.team.upsert({
-              where: { name: t.name },
-              update: { logoUrl: t.logoUrl },
-              create: { name: t.name, shortName: t.shortName, logoUrl: t.logoUrl },
-            })
-          )
-        );
+        console.error('Failed to sync real matches from CricAPI:', err);
+      }
 
-        // Seed Venues (parallel)
-        const dbVenues = await Promise.all(
-          VENUES.map(v =>
-            prisma.venue.upsert({
-              where: { name: v.name },
-              update: {},
-              create: {
-                name: v.name,
-                city: v.city,
-                country: v.country,
-                latitude: v.latitude,
-                longitude: v.longitude,
-              },
-            })
-          )
-        );
+      // Seed mock COMPLETED matches (always seed these so the history page is populated)
+      for (const f of MOCK_COMPLETED_FIXTURES) {
+        const homeTeam = dbTeams.find(t => t.name === TEAMS[f.homeIndex].name);
+        const awayTeam = dbTeams.find(t => t.name === TEAMS[f.awayIndex].name);
+        const venue = dbVenues.find(v => v.name === VENUES[f.venueIndex].name);
+        const winnerTeam = dbTeams.find(t => t.name === TEAMS[f.winnerIndex].name);
 
-        // Seed Matches + Predictions
-        const now = new Date();
-        for (const f of MOCK_FIXTURES) {
-          const homeTeam = dbTeams.find(t => t.name === TEAMS[f.homeIndex].name);
-          const awayTeam = dbTeams.find(t => t.name === TEAMS[f.awayIndex].name);
-          const venue = dbVenues.find(v => v.name === VENUES[f.venueIndex].name);
+        if (homeTeam && awayTeam && venue && winnerTeam) {
+          const scheduledAt = new Date(now.getTime() + f.daysOffset * 24 * 60 * 60 * 1000);
+          const completedAt = new Date(scheduledAt.getTime() + 4 * 60 * 60 * 1000); // 4 hours after start
 
-          if (homeTeam && awayTeam && venue) {
-            const scheduledAt = new Date(now.getTime() + f.daysOffset * 24 * 60 * 60 * 1000);
+          const matchObj = await prisma.match.upsert({
+            where: { apiFixtureId: f.apiId },
+            update: {
+              scheduledAt,
+              status: MatchStatus.COMPLETED,
+              actualWinnerId: winnerTeam.id,
+              completedAt,
+            },
+            create: {
+              apiFixtureId: f.apiId,
+              homeTeamId: homeTeam.id,
+              awayTeamId: awayTeam.id,
+              venueId: venue.id,
+              scheduledAt,
+              format: f.format,
+              status: MatchStatus.COMPLETED,
+              actualWinnerId: winnerTeam.id,
+              completedAt,
+            },
+          });
 
-            const matchObj = await prisma.match.upsert({
-              where: { apiFixtureId: f.apiId },
-              update: { scheduledAt, status: MatchStatus.SCHEDULED },
-              create: {
-                apiFixtureId: f.apiId,
-                homeTeamId: homeTeam.id,
-                awayTeamId: awayTeam.id,
-                venueId: venue.id,
-                scheduledAt,
-                format: f.format,
-                status: MatchStatus.SCHEDULED,
-              },
-            });
-
-            const predResult = await calculatePrediction(matchObj.id);
-            await prisma.prediction.upsert({
-              where: { matchId: matchObj.id },
-              update: {
-                homeWinConfidence: predResult.homeWinConfidence,
-                awayWinConfidence: predResult.awayWinConfidence,
-                predictedWinnerId: predResult.predictedWinnerId,
-                featureSnapshot: predResult.features,
-              },
-              create: {
-                matchId: matchObj.id,
-                homeWinConfidence: predResult.homeWinConfidence,
-                awayWinConfidence: predResult.awayWinConfidence,
-                predictedWinnerId: predResult.predictedWinnerId,
-                featureSnapshot: predResult.features,
-              },
-            });
-          }
+          // Run and store prediction details
+          const predResult = await calculatePrediction(matchObj.id);
+          await prisma.prediction.upsert({
+            where: { matchId: matchObj.id },
+            update: {
+              homeWinConfidence: predResult.homeWinConfidence,
+              awayWinConfidence: predResult.awayWinConfidence,
+              predictedWinnerId: predResult.predictedWinnerId,
+              featureSnapshot: predResult.features,
+            },
+            create: {
+              matchId: matchObj.id,
+              homeWinConfidence: predResult.homeWinConfidence,
+              awayWinConfidence: predResult.awayWinConfidence,
+              predictedWinnerId: predResult.predictedWinnerId,
+              featureSnapshot: predResult.features,
+            },
+          });
         }
       }
     }
