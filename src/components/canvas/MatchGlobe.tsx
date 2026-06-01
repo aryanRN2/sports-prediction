@@ -24,7 +24,7 @@ export default function MatchGlobe() {
   const R = 2.2; // Globe radius
 
   const selectedMatch = useMemo(() => {
-    return upcomingMatches.find(m => m.id === selectedMatchId) || null;
+    return upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null;
   }, [upcomingMatches, selectedMatchId]);
 
   // Handle slow continuous rotation when no match is selected or mouse is idle
@@ -54,7 +54,7 @@ export default function MatchGlobe() {
 
   // Calculate coordinates for all venues
   const venuePins = useMemo(() => {
-    return upcomingMatches.map((match) => {
+    return upcomingMatches.map((match: Match) => {
       const { venue, prediction } = match;
       const position = latLongToVector3(venue.latitude, venue.longitude, R);
       
@@ -63,12 +63,12 @@ export default function MatchGlobe() {
       
       // glowing vector height based on confidence
       const confidence = prediction ? Math.max(prediction.homeWinConfidence, prediction.awayWinConfidence) : 0.6;
-      const pinHeight = 0.5 + confidence * 0.8;
+      const pinHeight = 0.15 + confidence * 0.35;
       
       const pinEndPosition = position.clone().add(normal.multiplyScalar(pinHeight));
       
       // color based on confidence rating
-      const color = confidence > 0.65 ? '#10b981' : confidence > 0.55 ? '#3b82f6' : '#f59e0b'; // Emerald, Blue, Amber
+      const color = confidence > 0.65 ? '#a855f7' : confidence > 0.55 ? '#3b82f6' : '#f97316'; // Neon Purple, Electric Blue, Hot Orange
 
       return {
         matchId: match.id,
@@ -86,7 +86,7 @@ export default function MatchGlobe() {
       {/* Ambient background light inside the globe for a gorgeous cyber glow */}
       <mesh>
         <sphereGeometry args={[R - 0.05, 32, 32]} />
-        <meshBasicMaterial color="#0f172a" transparent opacity={0.7} />
+        <meshBasicMaterial color="#050814" transparent opacity={0.9} />
       </mesh>
 
       {/* Earth wireframe representing the digital grid */}
@@ -96,7 +96,7 @@ export default function MatchGlobe() {
           color="#1e293b" 
           wireframe 
           transparent 
-          opacity={0.3} 
+          opacity={0.5} 
         />
       </mesh>
 
@@ -104,18 +104,34 @@ export default function MatchGlobe() {
       <mesh>
         <sphereGeometry args={[R + 0.01, 16, 16]} />
         <meshBasicMaterial 
-          color="#334155" 
+          color="#0f172a" 
           wireframe 
           transparent 
-          opacity={0.15} 
+          opacity={0.35} 
         />
       </mesh>
 
-      {/* Glow equator line */}
-      <gridHelper args={[R * 2.1, 8, '#0f172a', '#475569']} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      {/* Holographic Glowing Rings representing Latitude/Longitude grid lines */}
+      {/* Equator Ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[R - 0.01, R + 0.03, 64]} />
+        <meshBasicMaterial color="#a855f7" transparent opacity={0.5} side={THREE.DoubleSide} />
+      </mesh>
+      
+      {/* Longitudinal Ring 1 (0°/180°) */}
+      <mesh rotation={[0, 0, 0]}>
+        <ringGeometry args={[R - 0.01, R + 0.02, 64]} />
+        <meshBasicMaterial color="#3b82f6" transparent opacity={0.4} side={THREE.DoubleSide} />
+      </mesh>
+      
+      {/* Longitudinal Ring 2 (90°/270°) */}
+      <mesh rotation={[0, Math.PI / 2, 0]}>
+        <ringGeometry args={[R - 0.01, R + 0.02, 64]} />
+        <meshBasicMaterial color="#3b82f6" transparent opacity={0.4} side={THREE.DoubleSide} />
+      </mesh>
 
       {/* Holographic Glowing stadium location pins and shooting arcs */}
-      {venuePins.map((pin, i) => {
+      {venuePins.map((pin: any, i: number) => {
         const isSelected = pin.matchId === selectedMatchId;
         return (
           <group key={pin.matchId}>

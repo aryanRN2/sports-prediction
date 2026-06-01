@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useMatchStore } from '@/store/useMatchStore';
+import { useMatchStore, Match } from '@/store/useMatchStore';
 import { Html } from '@react-three/drei';
 
 interface VisualizerBarProps {
@@ -27,7 +27,7 @@ function VisualizerBar({ position, height, color, label, value }: VisualizerBarP
         }}
         onPointerOut={() => setHovered(false)}
       >
-        <cylinderGeometry args={[0.15, 0.15, barHeight, 16]} />
+        <cylinderGeometry args={[0.06, 0.06, barHeight, 16]} />
         <meshPhysicalMaterial
           color={color}
           emissive={color}
@@ -44,7 +44,7 @@ function VisualizerBar({ position, height, color, label, value }: VisualizerBarP
       {/* Floating value display on hover */}
       {hovered && (
         <Html position={[0, barHeight + 0.3, 0]} center distanceFactor={6}>
-          <div className="bg-slate-900/90 text-white px-2 py-1 rounded border border-slate-700 text-[10px] font-mono shadow-xl whitespace-nowrap backdrop-blur-sm pointer-events-none">
+          <div className="bg-white/95 text-slate-800 px-2 py-1 rounded border border-slate-100 text-[10px] font-mono shadow-md whitespace-nowrap pointer-events-none">
             <span className="font-semibold">{label}: </span>
             <span>{Math.round(value * 100)}%</span>
           </div>
@@ -56,7 +56,7 @@ function VisualizerBar({ position, height, color, label, value }: VisualizerBarP
 
 export default function DataVisualizer() {
   const { upcomingMatches, selectedMatchId } = useMatchStore();
-  const selectedMatch = upcomingMatches.find(m => m.id === selectedMatchId) || null;
+  const selectedMatch = upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null;
 
   // Features to compare
   const features = selectedMatch?.prediction?.featureSnapshot || {
@@ -75,29 +75,29 @@ export default function DataVisualizer() {
       label: 'Team Form',
       homeVal: features.formHome,
       awayVal: features.formAway,
-      posHome: [-1.8, 0, -0.6] as [number, number, number],
-      posAway: [-1.8, 0, 0.6] as [number, number, number],
+      posHome: [-1.8, 0, -0.4] as [number, number, number],
+      posAway: [-1.8, 0, -1.2] as [number, number, number],
     },
     {
       label: 'H2H History',
       homeVal: features.h2hHome,
       awayVal: features.h2hAway,
-      posHome: [-0.6, 0, -0.6] as [number, number, number],
-      posAway: [-0.6, 0, 0.6] as [number, number, number],
+      posHome: [-0.6, 0, -0.4] as [number, number, number],
+      posAway: [-0.6, 0, -1.2] as [number, number, number],
     },
     {
       label: 'Venue Index',
       homeVal: features.venueHome,
       awayVal: features.venueAway,
-      posHome: [0.6, 0, -0.6] as [number, number, number],
-      posAway: [0.6, 0, 0.6] as [number, number, number],
+      posHome: [0.6, 0, -0.4] as [number, number, number],
+      posAway: [0.6, 0, -1.2] as [number, number, number],
     },
     {
       label: 'Format Match',
       homeVal: features.formatHome,
       awayVal: features.formatAway,
-      posHome: [1.8, 0, -0.6] as [number, number, number],
-      posAway: [1.8, 0, 0.6] as [number, number, number],
+      posHome: [1.8, 0, -0.4] as [number, number, number],
+      posAway: [1.8, 0, -1.2] as [number, number, number],
     },
   ];
 
@@ -106,8 +106,8 @@ export default function DataVisualizer() {
       {featurePairs.map((pair, idx) => (
         <group key={idx}>
           {/* Label under the columns */}
-          <Html position={[(pair.posHome[0] + pair.posAway[0]) / 2, -0.15, 0]} center distanceFactor={8}>
-            <div className="text-slate-400 font-medium text-[8px] uppercase tracking-wider select-none whitespace-nowrap">
+          <Html position={[(pair.posHome[0] + pair.posAway[0]) / 2, -0.15, (pair.posHome[2] + pair.posAway[2]) / 2]} center distanceFactor={8}>
+            <div className="bg-white border border-slate-200 text-slate-500 font-mono font-bold text-[6px] tracking-widest px-2 py-0.5 rounded shadow-[0_1px_3px_rgba(0,0,0,0.02)] uppercase select-none whitespace-nowrap backdrop-blur-sm">
               {pair.label}
             </div>
           </Html>
@@ -121,11 +121,11 @@ export default function DataVisualizer() {
             value={pair.homeVal}
           />
 
-          {/* Away team metric pillar (Green) */}
+          {/* Away team metric pillar (Purple) */}
           <VisualizerBar
             position={pair.posAway}
             height={pair.awayVal}
-            color="#10b981"
+            color="#a855f7"
             label={`${selectedMatch?.awayTeam.shortName || 'Away'} ${pair.label}`}
             value={pair.awayVal}
           />

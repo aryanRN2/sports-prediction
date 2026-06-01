@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617; /* slate-950 */
-  --foreground: #f8fafc; /* slate-50 */
-  --accent-blue: #3b82f6;
-  --accent-green: #10b981;
+  --background: #000000; /* Pure black */
+  --foreground: #f8fafc; /* Crisp silver white */
+  --accent-blue: #3b82f6; /* Electric blue */
+  --accent-purple: #a855f7; /* Neon purple */
+  --accent-orange: #f97316; /* Hot orange/amber */
 }
 
 body {
@@ -14,35 +15,74 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom scrollbars for a premium dark mode dashboard */
+/* Custom scrollbars for a premium dark cybernetic dashboard */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: #000000;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #1e293b;
   border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
+  border-color: rgba(255,255,255,0.1);
 }
 
-/* Cybernetic animations */
+/* Cybernetic glow keyframes */
 @keyframes cyberGlow {
   0%, 100% {
-    text-shadow: 0 0 8px rgba(59, 130, 246, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
+    text-shadow: 0 0 8px rgba(168, 85, 247, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
   }
   50% {
-    text-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
+    text-shadow: 0 0 15px rgba(168, 85, 247, 0.8), 0 0 30px rgba(59, 130, 246, 0.4);
   }
 }
 
 .cyber-title {
   animation: cyberGlow 3s infinite ease-in-out;
+}
+
+/* Pure CSS Fade-in to bypass Next.js React hydration state resets */
+@keyframes videoFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.50; /* Perfect opacity to make the gorgeous skull reflections beautifully visible */
+  }
+}
+
+.animate-video-fade-in {
+  animation: videoFadeIn 2s ease-in-out forwards;
+}
+
+/* Hide native browser play overlays, start playback buttons, and media controls in Safari, Chrome, and iOS WebKit */
+video::-webkit-media-controls {
+  display: none !important;
+}
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+video::-webkit-media-controls-panel {
+  display: none !important;
+}
+video::-webkit-media-controls-play-button {
+  display: none !important;
+}
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+}
+video::-webkit-media-controls-enclosure {
+  display: none !important;
 }

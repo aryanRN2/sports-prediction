@@ -5,12 +5,12 @@ import { calculatePrediction } from '@/lib/predictor';
 
 // Seed datasets for cricket teams
 const TEAMS = [
-  { name: 'India', shortName: 'IND', logoUrl: 'https://images.unsplash.com/photo-1531415080290-bc9b08f4c229?w=100&h=100&fit=crop&q=80' },
-  { name: 'Australia', shortName: 'AUS', logoUrl: 'https://images.unsplash.com/photo-1540747737956-37872564fec0?w=100&h=100&fit=crop&q=80' },
-  { name: 'England', shortName: 'ENG', logoUrl: 'https://images.unsplash.com/photo-1518063319789-7217e6706b04?w=100&h=100&fit=crop&q=80' },
-  { name: 'Pakistan', shortName: 'PAK', logoUrl: 'https://images.unsplash.com/photo-1562088287-bde35a1ea917?w=100&h=100&fit=crop&q=80' },
-  { name: 'South Africa', shortName: 'RSA', logoUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=100&h=100&fit=crop&q=80' },
-  { name: 'New Zealand', shortName: 'NZL', logoUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=100&h=100&fit=crop&q=80' },
+  { name: 'India', shortName: 'IND', logoUrl: '/logos/india.png' },
+  { name: 'Australia', shortName: 'AUS', logoUrl: '/logos/australia.png' },
+  { name: 'England', shortName: 'ENG', logoUrl: '/logos/england.png' },
+  { name: 'Pakistan', shortName: 'PAK', logoUrl: '/logos/pakistan.png' },
+  { name: 'South Africa', shortName: 'RSA', logoUrl: '/logos/south_africa.png' },
+  { name: 'New Zealand', shortName: 'NZL', logoUrl: '/logos/new_zealand.png' },
 ];
 
 // Seed datasets for stadiums with latitude and longitude
@@ -48,43 +48,43 @@ export async function GET() {
       orderBy: { scheduledAt: 'asc' },
     });
 
-    // Seeding trigger: If empty database, auto-seed with beautiful high-fidelity data
-    if (dbTeams.length === 0 || dbVenues.length === 0 || dbMatches.length === 0) {
-      console.log('Database empty. Seeding teams, venues, and fixtures...');
+    // 1. Always seed/sync Teams to ensure latest official logos are active
+    dbTeams = [];
+    for (const t of TEAMS) {
+      const teamObj = await prisma.team.upsert({
+        where: { name: t.name },
+        update: {
+          logoUrl: t.logoUrl,
+        },
+        create: {
+          name: t.name,
+          shortName: t.shortName,
+          logoUrl: t.logoUrl,
+        },
+      });
+      dbTeams.push(teamObj);
+    }
 
-      // 1. Seed Teams
-      dbTeams = [];
-      for (const t of TEAMS) {
-        const teamObj = await prisma.team.upsert({
-          where: { name: t.name },
-          update: {},
-          create: {
-            name: t.name,
-            shortName: t.shortName,
-            logoUrl: t.logoUrl,
-          },
-        });
-        dbTeams.push(teamObj);
-      }
+    // 2. Always seed/sync Venues
+    dbVenues = [];
+    for (const v of VENUES) {
+      const venueObj = await prisma.venue.upsert({
+        where: { name: v.name },
+        update: {},
+        create: {
+          name: v.name,
+          city: v.city,
+          country: v.country,
+          latitude: v.latitude,
+          longitude: v.longitude,
+        },
+      });
+      dbVenues.push(venueObj);
+    }
 
-      // 2. Seed Venues
-      dbVenues = [];
-      for (const v of VENUES) {
-        const venueObj = await prisma.venue.upsert({
-          where: { name: v.name },
-          update: {},
-          create: {
-            name: v.name,
-            city: v.city,
-            country: v.country,
-            latitude: v.latitude,
-            longitude: v.longitude,
-          },
-        });
-        dbVenues.push(venueObj);
-      }
-
-      // 3. Seed Fixtures
+    // Seeding trigger: If matches are empty, seed mock fixtures and predictions
+    if (dbMatches.length === 0) {
+      console.log('Seeding upcoming fixtures and predictions...');
       const now = new Date();
       for (const f of MOCK_FIXTURES) {
         const homeTeam = dbTeams.find(t => t.name === TEAMS[f.homeIndex].name);

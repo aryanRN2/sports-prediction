@@ -13,7 +13,7 @@ interface CanvasWrapperProps {
 
 export default function CanvasWrapper({ viewMode }: CanvasWrapperProps) {
   return (
-    <div className="w-full h-full relative bg-slate-950/60 rounded-2xl border border-slate-800 overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.6)]">
+    <div className="w-full h-full relative bg-black rounded-2xl border border-white/5 overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]">
       {/* Dynamic scanlines/hologram background effect overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.015)_50%,rgba(0,0,0,0.15)_50%)] bg-[size:100%_4px] pointer-events-none z-10 opacity-30" />
       
@@ -29,10 +29,10 @@ export default function CanvasWrapper({ viewMode }: CanvasWrapperProps) {
           className="w-full h-full"
         >
           {/* Cybernetic neon lighting */}
-          <color attach="background" args={['#020617']} />
-          <ambientLight intensity={0.2} />
-          <pointLight position={[10, 10, 10]} intensity={1.5} color="#3b82f6" />
-          <pointLight position={[-10, -10, -10]} intensity={0.5} color="#10b981" />
+          <color attach="background" args={['#000000']} />
+          <ambientLight intensity={0.85} />
+          <pointLight position={[10, 10, 10]} intensity={1.0} color="#3b82f6" />
+          <pointLight position={[-10, -10, -10]} intensity={0.3} color="#a855f7" />
 
           {viewMode === 'globe' ? (
             <group>
@@ -51,14 +51,14 @@ export default function CanvasWrapper({ viewMode }: CanvasWrapperProps) {
             enableZoom={true}
             maxDistance={viewMode === 'globe' ? 12 : 7}
             minDistance={viewMode === 'globe' ? 4 : 2}
-            maxPolarAngle={Math.PI / 2 - 0.05} // Prevent camera clipping below horizon
+            maxPolarAngle={viewMode === 'globe' ? Math.PI : Math.PI / 2 - 0.05}
           />
           <Preload all />
         </Canvas>
       </Suspense>
 
       {/* Floating 3D Control Instructions */}
-      <div className="absolute bottom-4 left-4 text-[9px] font-mono text-slate-500 bg-slate-900/60 border border-slate-800/80 px-2 py-1 rounded select-none backdrop-blur-sm pointer-events-none z-10 uppercase tracking-wider">
+      <div className="absolute bottom-4 left-4 text-[9px] font-mono text-slate-400 bg-black/60 border border-white/5 px-2.5 py-1 rounded select-none backdrop-blur-sm pointer-events-none z-10 uppercase tracking-wider shadow-sm">
         Drag to Rotate / Scroll to Zoom
       </div>
     </div>

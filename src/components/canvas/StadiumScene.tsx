@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useMatchStore } from '@/store/useMatchStore';
+import { useMatchStore, Match } from '@/store/useMatchStore';
 
 export default function StadiumScene() {
   const { upcomingMatches, selectedMatchId } = useMatchStore();
@@ -11,15 +11,15 @@ export default function StadiumScene() {
   const homeShieldRef = useRef<THREE.Mesh>(null);
   const awayShieldRef = useRef<THREE.Mesh>(null);
 
-  const selectedMatch = upcomingMatches.find(m => m.id === selectedMatchId) || null;
+  const selectedMatch = upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null;
 
   // Retrieve prediction metrics or fallback
   const homeConfidence = selectedMatch?.prediction?.homeWinConfidence ?? 0.5;
   const awayConfidence = selectedMatch?.prediction?.awayWinConfidence ?? 0.5;
 
   // Base configurations
-  const BASE_SCALE = 0.5;
-  const SCALE_FACTOR = 1.0;
+  const BASE_SCALE = 0.18;
+  const SCALE_FACTOR = 0.32;
 
   // Real-time animation
   useFrame((state) => {
@@ -59,22 +59,22 @@ export default function StadiumScene() {
       {/* Stadium Outer Ring Wall */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
         <torusGeometry args={[3.2, 0.08, 16, 100]} />
-        <meshBasicMaterial color="#1e293b" transparent opacity={0.5} />
+        <meshBasicMaterial color="#1e293b" transparent opacity={0.6} />
       </mesh>
 
       {/* Stadium Inner Glowing Border */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
         <torusGeometry args={[2.5, 0.04, 8, 64]} />
-        <meshBasicMaterial color="#3b82f6" toneMapped={false} />
+        <meshBasicMaterial color="#a855f7" toneMapped={false} />
       </mesh>
 
       {/* Central digital pitch disc */}
       <mesh ref={pitchRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
         <ringGeometry args={[0, 2.2, 32]} />
         <meshBasicMaterial 
-          color="#0f172a" 
+          color="#090d16" 
           transparent 
-          opacity={0.8}
+          opacity={0.9}
           side={THREE.DoubleSide} 
         />
       </mesh>
@@ -82,7 +82,7 @@ export default function StadiumScene() {
       {/* Cyber Pitch Markings Grid */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
         <ringGeometry args={[1.2, 1.25, 4]} />
-        <meshBasicMaterial color="#3b82f6" transparent opacity={0.3} side={THREE.DoubleSide} />
+        <meshBasicMaterial color="#3b82f6" transparent opacity={0.4} side={THREE.DoubleSide} />
       </mesh>
 
       {/* Floating Team A (Home Team) Shield/Object */}
@@ -91,7 +91,7 @@ export default function StadiumScene() {
           <octahedronGeometry args={[0.6]} />
           <meshPhysicalMaterial 
             color="#3b82f6" 
-            emissive="#1e3a8a"
+            emissive="#1d4ed8"
             roughness={0.1}
             metalness={0.9}
             transmission={0.6}
@@ -105,7 +105,7 @@ export default function StadiumScene() {
         {/* Under-shield glowing beam */}
         <mesh position={[0, -0.7, 0]}>
           <cylinderGeometry args={[0.15, 0.01, 0.5, 16, 1, true]} />
-          <meshBasicMaterial color="#3b82f6" transparent opacity={0.2} side={THREE.DoubleSide} />
+          <meshBasicMaterial color="#3b82f6" transparent opacity={0.25} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
@@ -114,8 +114,8 @@ export default function StadiumScene() {
         <mesh ref={awayShieldRef}>
           <dodecahedronGeometry args={[0.5]} />
           <meshPhysicalMaterial 
-            color="#10b981" 
-            emissive="#064e3b"
+            color="#a855f7" 
+            emissive="#6b21a8"
             roughness={0.1}
             metalness={0.9}
             transmission={0.6}
@@ -129,14 +129,14 @@ export default function StadiumScene() {
         {/* Under-shield glowing beam */}
         <mesh position={[0, -0.7, 0]}>
           <cylinderGeometry args={[0.15, 0.01, 0.5, 16, 1, true]} />
-          <meshBasicMaterial color="#10b981" transparent opacity={0.2} side={THREE.DoubleSide} />
+          <meshBasicMaterial color="#a855f7" transparent opacity={0.25} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
       {/* Stadium Floodlights (Dynamic Pointlights) */}
-      <pointLight position={[-4, 4, -4]} intensity={1.5} color="#3b82f6" />
-      <pointLight position={[4, 4, 4]} intensity={1.5} color="#10b981" />
-      <directionalLight position={[0, 5, 0]} intensity={0.5} />
+      <pointLight position={[-4, 4, -4]} intensity={2.0} color="#3b82f6" />
+      <pointLight position={[4, 4, 4]} intensity={2.0} color="#a855f7" />
+      <directionalLight position={[0, 5, 0]} intensity={0.2} />
     </group>
   );
 }
