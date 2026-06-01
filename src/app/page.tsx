@@ -2,14 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  TrendingUp, 
-  Award, 
-  MapPin, 
-  ArrowRight, 
-  Activity,
-  Cpu
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,26 +109,6 @@ export default function Home() {
         <div className="absolute top-1/2 right-10 w-[20rem] h-[20rem] bg-orange-500/5 rounded-full blur-[80px] pointer-events-none" />
       </div>
 
-      {/* 2. Top Header Navigation */}
-      <header className="relative z-20 border-b border-white/5 bg-black/40 backdrop-blur-md px-6 py-4 flex items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-            <Cpu size={16} className="text-white animate-spin duration-[10s]" />
-          </div>
-          <div>
-            <span className="text-sm font-extrabold tracking-widest bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">
-              CRICPREDICT <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">AI</span>
-            </span>
-            <p className="text-[8px] text-slate-500 font-mono tracking-widest uppercase">REGRESSION CALCULATOR</p>
-          </div>
-        </div>
-
-        {/* Dynamic status pill */}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/20 bg-orange-950/20 px-3.5 py-1 text-[9px] font-mono font-bold text-orange-400 uppercase tracking-widest shadow-[0_0_10px_rgba(249,115,22,0.1)]">
-          <span className="flex h-1.5 w-1.5 rounded-full bg-orange-500 animate-ping" />
-          PREDICTIVE SYSTEM ONLINE
-        </div>
-      </header>
 
       {/* 3. Hero / Main Content Layer */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-5xl mx-auto px-6 py-16 text-center select-none">
