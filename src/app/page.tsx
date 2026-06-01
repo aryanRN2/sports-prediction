@@ -161,12 +161,12 @@ export default function Home() {
           </Link>
           
           <a
-            href="https://github.com/aryanRN2/sports-prediction"
+            href="https://me-aryan.vercel.app/"
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-14 items-center justify-center rounded-xl border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 px-8 text-sm font-bold text-slate-300 hover:text-white transition-all duration-300 backdrop-blur-md shadow-sm"
           >
-            View Repository
+            About Me
           </a>
         </div>
       </main>
