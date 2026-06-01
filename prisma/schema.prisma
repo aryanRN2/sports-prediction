@@ -37,6 +37,8 @@ model Match {
   scheduledAt   DateTime
   status        MatchStatus  @default(SCHEDULED)
   format        MatchFormat  // TEST, ODI, T20
+  actualWinnerId String?
+  completedAt   DateTime?
   
   homeTeam      Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam      Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])

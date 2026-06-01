@@ -295,16 +295,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
+  const [historyMatches, setHistoryMatches] = useState<Match[]>([]);
+  const [accuracy, setAccuracy] = useState<number>(0);
+  const [totalPredictions, setTotalPredictions] = useState<number>(0);
+  const [correctPredictions, setCorrectPredictions] = useState<number>(0);
+  const [selectedCompletedMatchId, setSelectedCompletedMatchId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
   // Fetch scheduled cricket fixtures and predictions
   useEffect(() => {
     async function loadFixtures() {
       try {
         setLoading(true);
         const data = await fetchJson<{ success: boolean; matches: Match[] }>('/api/fixtures');
-        if (data.success && data.matches.length > 0) {
+        if (data.success) {
           setUpcomingMatches(data.matches);
-          // Auto-select the first fixture
-          setSelectedMatch(data.matches[0].id);
+          if (data.matches.length > 0) {
+            // Auto-select the first fixture
+            setSelectedMatch(data.matches[0].id);
+          }
         } else {
           setError('No fixtures found. Check database seeding.');
         }
@@ -315,10 +325,40 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
+    
+    async function loadHistory() {
+      try {
+        setHistoryLoading(true);
+        const data = await fetchJson<{
+          success: boolean;
+          matches: Match[];
+          accuracy: number;
+          totalPredictions: number;
+          correctPredictions: number;
+        }>('/api/history');
+        if (data.success) {
+          setHistoryMatches(data.matches);
+          setAccuracy(data.accuracy);
+          setTotalPredictions(data.totalPredictions);
+          setCorrectPredictions(data.correctPredictions);
+          if (data.matches.length > 0) {
+            setSelectedCompletedMatchId(data.matches[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+
     loadFixtures();
+    loadHistory();
   }, [setUpcomingMatches, setSelectedMatch]);
 
-  const selectedMatch = upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null;
+  const selectedMatch = activeTab === 'upcoming' 
+    ? (upcomingMatches.find((m: Match) => m.id === selectedMatchId) || null)
+    : (historyMatches.find((m: Match) => m.id === selectedCompletedMatchId) || null);
 
   if (loading) {
     return (
@@ -376,84 +416,213 @@ export default function Dashboard() {
       {/* Main layout — stacks vertically on mobile, side-by-side on lg+ */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden lg:max-h-[calc(100vh-61px)] bg-black">
 
-        {/* PANEL 1: Fixtures — horizontal scroll on mobile, vertical sidebar on desktop */}
+        {/* PANEL 1: Fixtures & History — horizontal scroll on mobile, vertical sidebar on desktop */}
         <aside className="w-full lg:w-80 xl:w-96 border-b lg:border-b-0 lg:border-r border-white/5 bg-slate-950/20 backdrop-blur-md lg:overflow-y-auto p-3 lg:p-4 flex flex-col gap-3">
+          {/* Tab Switcher */}
+          <div className="flex border border-white/5 p-1 bg-slate-950/60 rounded-xl mb-1 shrink-0">
+            <button
+              onClick={() => {
+                setActiveTab('upcoming');
+                if (upcomingMatches.length > 0 && !upcomingMatches.find(m => m.id === selectedMatchId)) {
+                  setSelectedMatch(upcomingMatches[0].id);
+                }
+              }}
+              className={`flex-1 py-1.5 text-center text-[10px] font-mono font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTab === 'upcoming'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              UPCOMING
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('history');
+                if (historyMatches.length > 0 && !historyMatches.find(m => m.id === selectedCompletedMatchId)) {
+                  setSelectedCompletedMatchId(historyMatches[0].id);
+                }
+              }}
+              className={`flex-1 py-1.5 text-center text-[10px] font-mono font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTab === 'history'
+                  ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              HISTORY
+            </button>
+          </div>
+
           <div className="hidden lg:block">
-            <h2 className="text-xs uppercase font-mono tracking-widest text-slate-200 mb-1 px-1">Upcoming Fixtures</h2>
-            <p className="text-[10px] text-slate-400 mb-3 px-1 font-mono">SELECT A MATCH TO VIEW PROBABLE XI</p>
+            <h2 className="text-xs uppercase font-mono tracking-widest text-slate-200 mb-1 px-1">
+              {activeTab === 'upcoming' ? 'Upcoming Fixtures' : 'Prediction History'}
+            </h2>
+            <p className="text-[10px] text-slate-400 mb-3 px-1 font-mono">
+              {activeTab === 'upcoming' ? 'SELECT A MATCH TO VIEW PROBABLE XI' : 'SELECT A PAST MATCH TO REVIEW RESULT'}
+            </p>
           </div>
 
           {/* Mobile: horizontal scroll carousel */}
           <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-1 lg:pb-0 snap-x snap-mandatory lg:snap-none">
-            {upcomingMatches.map((match: Match) => {
-              const isSelected = match.id === selectedMatchId;
-              const scheduledDate = new Date(match.scheduledAt);
+            {activeTab === 'upcoming' ? (
+              upcomingMatches.map((match: Match) => {
+                const isSelected = match.id === selectedMatchId;
+                const scheduledDate = new Date(match.scheduledAt);
 
-              return (
-                <div
-                  key={match.id}
-                  onClick={() => setSelectedMatch(match.id)}
-                  className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
-                    isSelected
-                      ? 'border-blue-500/40 bg-blue-950/20 shadow-[0_0_15px_rgba(59,130,246,0.08)]'
-                      : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-blue-500 to-purple-500" />
-                  )}
-
-                  <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar size={10} />
-                      {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
-                      match.format === 'TEST'
-                        ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
-                        : match.format === 'ODI'
-                        ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
-                        : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
-                    }`}>
-                      {match.format}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      {match.homeTeam.logoUrl && (
-                        <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                          <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
-                      {match.awayTeam.logoUrl && (
-                        <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
-                          <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                    <span className="flex items-center gap-1 truncate">
-                      <MapPin size={9} />
-                      {match.venue.city}
-                    </span>
-                    {match.prediction && (
-                      <span className="text-[9px] font-semibold text-orange-400 flex items-center gap-0.5 bg-orange-950/20 border border-orange-500/20 px-1.5 py-0.5 rounded font-mono shrink-0">
-                        <Award size={9} />
-                        {match.prediction.homeWinConfidence >= match.prediction.awayWinConfidence ? match.homeTeam.shortName : match.awayTeam.shortName}
-                      </span>
+                return (
+                  <div
+                    key={match.id}
+                    onClick={() => setSelectedMatch(match.id)}
+                    className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
+                      isSelected
+                        ? 'border-blue-500/40 bg-blue-950/20 shadow-[0_0_15px_rgba(59,130,246,0.08)]'
+                        : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-blue-500 to-purple-500" />
                     )}
+
+                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={10} />
+                        {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
+                        match.format === 'TEST'
+                          ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
+                          : match.format === 'ODI'
+                          ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
+                          : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
+                      }`}>
+                        {match.format}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {match.homeTeam.logoUrl && (
+                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                            <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                        <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
+                        {match.awayTeam.logoUrl && (
+                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                            <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                      <span className="flex items-center gap-1 truncate">
+                        <MapPin size={9} />
+                        {match.venue.city}
+                      </span>
+                      {match.prediction && (
+                        <span className="text-[9px] font-semibold text-orange-400 flex items-center gap-0.5 bg-orange-950/20 border border-orange-500/20 px-1.5 py-0.5 rounded font-mono shrink-0">
+                          <Award size={9} />
+                          {match.prediction.homeWinConfidence >= match.prediction.awayWinConfidence ? match.homeTeam.shortName : match.awayTeam.shortName}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              historyMatches.map((match: Match) => {
+                const isSelected = match.id === selectedCompletedMatchId;
+                const scheduledDate = new Date(match.scheduledAt);
+                const isCorrect = match.prediction && match.actualWinnerId && match.prediction.predictedWinnerId === match.actualWinnerId;
+
+                return (
+                  <div
+                    key={match.id}
+                    onClick={() => setSelectedCompletedMatchId(match.id)}
+                    className={`group relative overflow-hidden snap-start shrink-0 lg:shrink w-72 lg:w-auto p-3 rounded-xl border transition-all duration-300 cursor-pointer flex flex-col gap-2 ${
+                      isSelected
+                        ? 'border-purple-500/40 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.08)]'
+                        : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-950/60'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b from-purple-500 to-pink-500" />
+                    )}
+
+                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={10} />
+                        {scheduledDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[8px] border ${
+                          match.format === 'TEST'
+                            ? 'border-orange-500/20 bg-orange-950/20 text-orange-400'
+                            : match.format === 'ODI'
+                            ? 'border-blue-500/20 bg-blue-950/20 text-blue-400'
+                            : 'border-purple-500/20 bg-purple-950/20 text-purple-400'
+                        }`}>
+                          {match.format}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded font-mono text-[8px] font-extrabold uppercase ${
+                          isCorrect 
+                            ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/20' 
+                            : 'bg-rose-950/30 text-rose-400 border border-rose-500/20'
+                        }`}>
+                          {isCorrect ? '✓ CORRECT' : '✗ WRONG'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {match.homeTeam.logoUrl && (
+                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                            <img src={match.homeTeam.logoUrl} alt={match.homeTeam.name} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                        <span className="font-semibold text-slate-300 text-xs">{match.homeTeam.shortName}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 font-mono">VS</span>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="font-semibold text-slate-300 text-xs">{match.awayTeam.shortName}</span>
+                        {match.awayTeam.logoUrl && (
+                          <div className="w-5 h-5 rounded-full bg-white border border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                            <img src={match.awayTeam.logoUrl} alt={match.awayTeam.name} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                      <span className="flex items-center gap-1 truncate">
+                        <MapPin size={9} />
+                        {match.venue.city}
+                      </span>
+                      {match.prediction && (
+                        <span className={`text-[9px] font-semibold flex items-center gap-0.5 border px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                          isCorrect 
+                            ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-400' 
+                            : 'bg-rose-950/20 border-rose-500/20 text-rose-400'
+                        }`}>
+                          <Award size={9} />
+                          {match.prediction.predictedWinnerId === match.homeTeam.id ? match.homeTeam.shortName : match.awayTeam.shortName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            {activeTab === 'history' && historyMatches.length === 0 && (
+              <div className="text-center py-6 text-slate-500 text-xs font-mono w-full">
+                No prediction history available yet.
+              </div>
+            )}
           </div>
         </aside>
 
@@ -463,9 +632,55 @@ export default function Dashboard() {
           {/* Match overview bar */}
           <section className="p-3 lg:p-4 flex flex-col gap-3 lg:overflow-y-auto">
 
+            {/* Glowing Accuracy Stats Display (History tab only) */}
+            {activeTab === 'history' && (
+              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-purple-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                {/* Glowing neon bg lines */}
+                <div className="absolute -top-12 -left-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-pink-500/10 rounded-full blur-2xl pointer-events-none" />
+                
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                    <TrendingUp size={24} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white tracking-tight uppercase font-mono">Prediction Engine Accuracy</h3>
+                    <p className="text-[9px] text-slate-400 font-mono tracking-wider mt-0.5">COMPARING AI FORECASTS TO REAL MATCH OUTCOMES</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 relative z-10">
+                  <div className="flex flex-col items-center border-r border-white/5 pr-6">
+                    <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+                      {accuracy}%
+                    </span>
+                    <span className="text-[8px] font-mono text-slate-400 uppercase tracking-widest mt-0.5">Accuracy</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-center font-mono">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-white">{totalPredictions}</span>
+                      <span className="text-[8px] text-slate-500 uppercase">Total</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-emerald-400">{correctPredictions}</span>
+                      <span className="text-[8px] text-slate-500 uppercase">Correct</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-rose-400">{totalPredictions - correctPredictions}</span>
+                      <span className="text-[8px] text-slate-500 uppercase">Wrong</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Match header */}
             {selectedMatch && (
-              <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] backdrop-blur-md">
+              <div className={`bg-slate-950/60 border rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all ${
+                activeTab === 'history' 
+                  ? 'border-purple-500/10' 
+                  : 'border-white/5'
+              }`}>
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono flex-wrap">
                     <span>{selectedMatch.venue.name}</span>
@@ -489,14 +704,35 @@ export default function Dashboard() {
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] uppercase font-mono text-slate-400">Forecast:</span>
-                  <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold">
-                    <span className="text-blue-400 px-2">{selectedMatch.homeTeam.shortName} {Math.round((selectedMatch.prediction?.homeWinConfidence ?? 0.5) * 100)}%</span>
-                    <span className="text-slate-700">|</span>
-                    <span className="text-purple-400 px-2">{selectedMatch.awayTeam.shortName} {Math.round((selectedMatch.prediction?.awayWinConfidence ?? 0.5) * 100)}%</span>
+                {activeTab === 'upcoming' ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] uppercase font-mono text-slate-400">Forecast:</span>
+                    <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold">
+                      <span className="text-blue-400 px-2">{selectedMatch.homeTeam.shortName} {Math.round((selectedMatch.prediction?.homeWinConfidence ?? 0.5) * 100)}%</span>
+                      <span className="text-slate-700">|</span>
+                      <span className="text-purple-400 px-2">{selectedMatch.awayTeam.shortName} {Math.round((selectedMatch.prediction?.awayWinConfidence ?? 0.5) * 100)}%</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] uppercase font-mono text-slate-400">Outcome:</span>
+                    {selectedMatch.actualWinnerId ? (
+                      <div className={`inline-flex rounded-lg border p-1 text-[11px] font-mono font-bold ${
+                        selectedMatch.prediction && selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId
+                          ? 'bg-emerald-950/30 border-emerald-500/20 text-emerald-400'
+                          : 'bg-rose-950/30 border-rose-500/20 text-rose-400'
+                      }`}>
+                        <span className="px-2">
+                          Winner: {selectedMatch.actualWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex rounded-lg bg-slate-900 border border-white/10 p-1 text-[11px] font-mono font-bold text-slate-400">
+                        <span className="px-2">No Result / Draw</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -514,7 +750,9 @@ export default function Dashboard() {
                       )}
                       <div>
                         <h3 className="text-sm font-bold text-white leading-tight">{selectedMatch.homeTeam.name}</h3>
-                        <p className="text-[9px] font-mono text-blue-400 tracking-widest uppercase">Home · Probable XI</p>
+                        <p className="text-[9px] font-mono text-blue-400 tracking-widest uppercase">
+                          {activeTab === 'upcoming' ? 'Home · Probable XI' : 'Home · Squad'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -529,6 +767,11 @@ export default function Dashboard() {
                           </div>
                         </div>
                       ))}
+                      {getSquad(selectedMatch.homeTeam.name, selectedMatch.format).length === 0 && (
+                        <div className="text-center py-6 text-slate-500 font-mono text-xs">
+                          Squad not available for this team.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -542,7 +785,9 @@ export default function Dashboard() {
                       )}
                       <div>
                         <h3 className="text-sm font-bold text-white leading-tight">{selectedMatch.awayTeam.name}</h3>
-                        <p className="text-[9px] font-mono text-purple-400 tracking-widest uppercase">Away · Probable XI</p>
+                        <p className="text-[9px] font-mono text-purple-400 tracking-widest uppercase">
+                          {activeTab === 'upcoming' ? 'Away · Probable XI' : 'Away · Squad'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -557,12 +802,17 @@ export default function Dashboard() {
                           </div>
                         </div>
                       ))}
+                      {getSquad(selectedMatch.awayTeam.name, selectedMatch.format).length === 0 && (
+                        <div className="text-center py-6 text-slate-500 font-mono text-xs">
+                          Squad not available for this team.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="col-span-2 flex items-center justify-center py-16 text-slate-500 font-mono text-sm">
-                  <Users size={28} className="mr-3 opacity-30" /> Select a match to view squads
+                  <Users size={28} className="mr-3 opacity-30" /> Select a match to view details
                 </div>
               )}
             </div>
@@ -625,9 +875,29 @@ export default function Dashboard() {
                   <div className="text-[10px] text-slate-300 font-mono mt-1">
                     PREDICTED WINNER:{' '}
                     <span className="text-white font-extrabold underline decoration-purple-500 decoration-2 underline-offset-4">
-                      {selectedMatch.prediction.homeWinConfidence >= selectedMatch.prediction.awayWinConfidence ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name}
+                      {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name}
                     </span>
                   </div>
+
+                  {activeTab === 'history' && selectedMatch.actualWinnerId && (
+                    <div className={`w-full max-w-md p-3 rounded-xl border font-mono text-xs mt-3 flex items-center justify-center gap-2 ${
+                      selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId
+                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                        : 'bg-rose-950/30 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
+                    }`}>
+                      {selectedMatch.prediction.predictedWinnerId === selectedMatch.actualWinnerId ? (
+                        <>
+                          <Award size={14} className="shrink-0 animate-bounce" />
+                          <span>AI FORECAST ACCURATE: Predicted {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} successfully!</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldAlert size={14} className="shrink-0" />
+                          <span>AI FORECAST MISSED: Predicted {selectedMatch.prediction.predictedWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} but {selectedMatch.actualWinnerId === selectedMatch.homeTeamId ? selectedMatch.homeTeam.name : selectedMatch.awayTeam.name} won.</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Factor breakdown — 2-col grid on mobile */}
@@ -666,3 +936,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

@@ -34,6 +34,8 @@ export interface Match {
   scheduledAt: string;
   status: 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'CANCELLED';
   format: 'TEST' | 'ODI' | 'T20';
+  actualWinnerId?: string | null;
+  completedAt?: string | null;
   homeTeam: Team;
   awayTeam: Team;
   venue: Venue;

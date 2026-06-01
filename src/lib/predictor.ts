@@ -177,20 +177,25 @@ async function getTeamFormScore(teamId: string): Promise<number> {
 
   if (matches.length === 0) return 0.5; // Default neutral
 
-  // If predictions exist, simulate wins/losses based on prediction for simplicity 
-  // or use random deterministic outcome if there's no actual result field.
   let wins = 0;
+  let validCount = 0;
   matches.forEach(m => {
-    // In our schema, match does not have a "winner" column, so we check if predicted winner matched
-    // or simulate wins based on high prediction scores deterministically.
-    const isHome = m.homeTeamId === teamId;
-    const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
-    if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
-      wins++;
+    if (m.actualWinnerId) {
+      if (m.actualWinnerId === teamId) {
+        wins++;
+      }
+      validCount++;
+    } else {
+      const isHome = m.homeTeamId === teamId;
+      const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
+      if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
+        wins++;
+      }
+      validCount++;
     }
   });
 
-  return wins / matches.length;
+  return validCount > 0 ? wins / validCount : 0.5;
 }
 
 /**
@@ -212,16 +217,25 @@ async function getHeadToHeadScores(teamAId: string, teamBId: string): Promise<{ 
   if (matches.length === 0) return { homeH2hScore: 0.5, awayH2hScore: 0.5 };
 
   let homeWins = 0;
+  let validCount = 0;
   matches.forEach(m => {
-    const isHome = m.homeTeamId === teamAId;
-    const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
-    const homeWon = homeProb >= 0.5;
-    if ((isHome && homeWon) || (!isHome && !homeWon)) {
-      homeWins++;
+    if (m.actualWinnerId) {
+      if (m.actualWinnerId === teamAId) {
+        homeWins++;
+      }
+      validCount++;
+    } else {
+      const isHome = m.homeTeamId === teamAId;
+      const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
+      const homeWon = homeProb >= 0.5;
+      if ((isHome && homeWon) || (!isHome && !homeWon)) {
+        homeWins++;
+      }
+      validCount++;
     }
   });
 
-  const ratio = homeWins / matches.length;
+  const ratio = validCount > 0 ? homeWins / validCount : 0.5;
   return { homeH2hScore: ratio, awayH2hScore: 1 - ratio };
 }
 
@@ -245,15 +259,24 @@ async function getVenueScore(teamId: string, venueId: string): Promise<number> {
   if (matches.length === 0) return 0.5;
 
   let wins = 0;
+  let validCount = 0;
   matches.forEach(m => {
-    const isHome = m.homeTeamId === teamId;
-    const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
-    if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
-      wins++;
+    if (m.actualWinnerId) {
+      if (m.actualWinnerId === teamId) {
+        wins++;
+      }
+      validCount++;
+    } else {
+      const isHome = m.homeTeamId === teamId;
+      const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
+      if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
+        wins++;
+      }
+      validCount++;
     }
   });
 
-  return wins / matches.length;
+  return validCount > 0 ? wins / validCount : 0.5;
 }
 
 /**
@@ -276,13 +299,23 @@ async function getFormatScore(teamId: string, format: MatchFormat): Promise<numb
   if (matches.length === 0) return 0.5;
 
   let wins = 0;
+  let validCount = 0;
   matches.forEach(m => {
-    const isHome = m.homeTeamId === teamId;
-    const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
-    if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
-      wins++;
+    if (m.actualWinnerId) {
+      if (m.actualWinnerId === teamId) {
+        wins++;
+      }
+      validCount++;
+    } else {
+      const isHome = m.homeTeamId === teamId;
+      const homeProb = m.prediction?.homeWinConfidence ?? 0.5;
+      if ((isHome && homeProb >= 0.5) || (!isHome && homeProb < 0.5)) {
+        wins++;
+      }
+      validCount++;
     }
   });
 
-  return wins / matches.length;
+  return validCount > 0 ? wins / validCount : 0.5;
 }
+
