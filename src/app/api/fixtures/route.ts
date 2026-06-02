@@ -7,13 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Sync real matches from CricAPI in the background/inline
-    try {
-      await syncUpcomingMatches();
-      console.log('CricAPI sync completed.');
-    } catch (err) {
-      console.error('Failed to sync real matches from CricAPI:', err);
-    }
+    // Sync real matches from CricAPI in the background so it doesn't block the request
+    syncUpcomingMatches()
+      .then(() => console.log('CricAPI sync completed.'))
+      .catch((err) => console.error('Failed to sync real matches from CricAPI:', err));
 
     // Always: fetch and return current SCHEDULED or LIVE matches
     const dbMatches = await prisma.match.findMany({

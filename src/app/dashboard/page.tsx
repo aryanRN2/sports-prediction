@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useMatchStore, Match } from '@/store/useMatchStore';
 import { fetchJson } from '@/lib/api-client';
 import Link from 'next/link';
@@ -13,7 +13,9 @@ import {
   Users,
   Star,
   TrendingUp,
-  Tv
+  Tv,
+  Search,
+  X
 } from 'lucide-react';
 
 import { getSquad, Player } from '@/lib/squads';
@@ -25,6 +27,100 @@ const ROLE_STYLES: Record<string, string> = {
   WK: 'bg-amber-950/40 text-amber-400 border-amber-500/20',
 };
 
+// Client-side Semantic Match Filtering
+function semanticSearchMatches(matches: Match[], query: string): Match[] {
+  if (!query.trim()) return matches;
+  
+  const cleanQuery = query.toLowerCase().trim();
+  const queryWords = cleanQuery.split(/\s+/);
+  
+  // Semantic category extraction
+  const isWomenQuery = queryWords.some(w => ['women', 'womens', 'women\'s', 'female', 'girls', 'girl', 'woman', 'lady', 'ladies'].includes(w));
+  const isMenQuery = queryWords.some(w => ['men', 'mens', 'men\'s', 'male', 'boys', 'boy', 'man', 'gentleman', 'gentlemen'].includes(w));
+  
+  const isT20Query = queryWords.some(w => ['t20', 'twenty20', 'twenty 20', 'short', 'shortest', 'quick', 'fast', 't20i'].includes(w));
+  const isODIQuery = queryWords.some(w => ['odi', 'one day', 'one-day', '50 overs', '50 over', 'medium', 'odis'].includes(w));
+  const isTestQuery = queryWords.some(w => ['test', '5 days', 'red ball', 'longest', 'long', 'tests'].includes(w));
+  
+  const isAsianQuery = queryWords.some(w => ['asia', 'asian', 'subcontinent'].includes(w));
+  const isEuropeanQuery = queryWords.some(w => ['europe', 'european', 'euro'].includes(w));
+  const isOceaniaQuery = queryWords.some(w => ['oceania', 'pacific', 'aussie', 'kiwi'].includes(w));
+  const isAmericasQuery = queryWords.some(w => ['americas', 'caribbean', 'west indies', 'windies', 'usa', 'canada'].includes(w));
+
+  const asianCountries = [
+    'india', 'pakistan', 'sri lanka', 'bangladesh', 'nepal', 'oman', 'uae', 'united arab emirates',
+    'afghanistan', 'china', 'saudi arabia', 'mongolia', 'myanmar', 'japan', 'thailand', 'tbc'
+  ];
+  const europeanCountries = [
+    'england', 'ireland', 'scotland', 'sweden', 'portugal', 'netherlands', 'finland', 'austria',
+    'luxembourg', 'czech republic', 'denmark', 'germany'
+  ];
+  const oceaniaCountries = ['australia', 'new zealand'];
+  const americasCountries = ['west indies', 'usa', 'canada'];
+
+  return matches
+    .map(match => {
+      let score = 0;
+      const homeName = match.homeTeam.name.toLowerCase();
+      const awayName = match.awayTeam.name.toLowerCase();
+      const homeShort = match.homeTeam.shortName.toLowerCase();
+      const awayShort = match.awayTeam.shortName.toLowerCase();
+      const venueName = match.venue.name.toLowerCase();
+      const venueCity = match.venue.city.toLowerCase();
+      const venueCountry = match.venue.country.toLowerCase();
+      const format = match.format.toLowerCase();
+
+      // 1. Gender / Type Semantic Matching
+      if (isWomenQuery) {
+        if (homeName.includes('women') || awayName.includes('women')) score += 5;
+      }
+      if (isMenQuery) {
+        if (!homeName.includes('women') && !awayName.includes('women')) score += 5;
+      }
+
+      // 2. Format Semantic Matching
+      if (isT20Query && format === 't20') score += 5;
+      if (isODIQuery && format === 'odi') score += 5;
+      if (isTestQuery && format === 'test') score += 5;
+
+      // 3. Region Semantic Matching
+      if (isAsianQuery) {
+        const homeIsAsian = asianCountries.some(c => homeName.includes(c));
+        const awayIsAsian = asianCountries.some(c => awayName.includes(c));
+        if (homeIsAsian || awayIsAsian) score += 4;
+      }
+      if (isEuropeanQuery) {
+        const homeIsEuro = europeanCountries.some(c => homeName.includes(c));
+        const awayIsEuro = europeanCountries.some(c => awayName.includes(c));
+        if (homeIsEuro || awayIsEuro) score += 4;
+      }
+      if (isOceaniaQuery) {
+        const homeIsOceania = oceaniaCountries.some(c => homeName.includes(c));
+        const awayIsOceania = oceaniaCountries.some(c => awayName.includes(c));
+        if (homeIsOceania || awayIsOceania) score += 4;
+      }
+      if (isAmericasQuery) {
+        const homeIsAmericas = americasCountries.some(c => homeName.includes(c));
+        const awayIsAmericas = americasCountries.some(c => awayName.includes(c));
+        if (homeIsAmericas || awayIsAmericas) score += 4;
+      }
+
+      // 4. Exact text matching for keywords
+      queryWords.forEach(word => {
+        if (word.length < 2) return;
+        if (homeName.includes(word) || awayName.includes(word)) score += 3;
+        if (homeShort === word || awayShort === word) score += 4;
+        if (venueName.includes(word) || venueCity.includes(word) || venueCountry.includes(word)) score += 2;
+        if (format === word) score += 2;
+      });
+
+      return { match, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.match);
+}
+
 export default function Dashboard() {
   const { 
     upcomingMatches, 
@@ -35,6 +131,19 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Filter matches using semantic search algorithm
+  const filteredMatches = useMemo(() => {
+    return semanticSearchMatches(upcomingMatches, searchQuery);
+  }, [upcomingMatches, searchQuery]);
+
+  // Auto-select the first match in the filtered list if the current selected match is not in it
+  useEffect(() => {
+    if (filteredMatches.length > 0 && !filteredMatches.some(m => m.id === selectedMatchId)) {
+      setSelectedMatch(filteredMatches[0].id);
+    }
+  }, [filteredMatches, selectedMatchId, setSelectedMatch]);
 
   // Fetch scheduled cricket fixtures and predictions
   useEffect(() => {
@@ -132,9 +241,29 @@ export default function Dashboard() {
             <p className="text-[10px] text-slate-400 mb-3 px-1 font-mono">SELECT A MATCH TO VIEW PROBABLE XI</p>
           </div>
 
+          {/* Semantic Search Input */}
+          <div className="relative flex items-center px-1">
+            <Search className="absolute left-3.5 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search teams, venues, formats..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-slate-900/60 border border-white/5 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900 transition-all font-mono"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           {/* Mobile: horizontal scroll carousel */}
           <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-1 lg:pb-0 snap-x snap-mandatory lg:snap-none">
-            {upcomingMatches.map((match: Match) => {
+            {filteredMatches.map((match: Match) => {
               const isSelected = match.id === selectedMatchId;
               const scheduledDate = new Date(match.scheduledAt);
 
@@ -203,6 +332,19 @@ export default function Dashboard() {
                 </div>
               );
             })}
+
+            {filteredMatches.length === 0 && (
+              <div className="py-12 px-4 text-center flex flex-col items-center justify-center gap-3 w-full">
+                <p className="text-xs font-mono text-slate-500 uppercase tracking-widest leading-relaxed">No matching fixtures found</p>
+                <p className="text-[10px] text-slate-600 font-sans leading-normal max-w-[200px]">Try searching for format (T20, ODI), gender (women, men), regions (asia, europe), or team names.</p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="mt-2 px-4 py-1.5 rounded-lg border border-white/5 bg-slate-900 text-[10px] font-mono font-bold text-blue-400 hover:text-blue-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Reset Search
+                </button>
+              </div>
+            )}
           </div>
         </aside>
 

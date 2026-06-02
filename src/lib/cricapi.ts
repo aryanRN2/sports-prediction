@@ -69,8 +69,25 @@ function mapMatchType(matchType: string): MatchFormat {
   return MatchFormat.T20; // Default fallback (T20 represents shortest format/variety)
 }
 
-export async function syncUpcomingMatches() {
+export async function syncUpcomingMatches(force = false) {
   try {
+    if (!force) {
+      // Check if we already did a sync/prediction today
+      const lastPrediction = await prisma.prediction.findFirst({
+        orderBy: { calculatedAt: 'desc' }
+      });
+      
+      if (lastPrediction) {
+        const lastSyncTime = new Date(lastPrediction.calculatedAt);
+        const now = new Date();
+        const isSameDay = lastSyncTime.toDateString() === now.toDateString();
+        if (isSameDay) {
+          console.log('Matches and predictions already synced today. Skipping CricAPI fetch.');
+          return { success: true, count: 0, skipped: true };
+        }
+      }
+    }
+
     const url = `https://api.cricapi.com/v1/matches?apikey=${CRICAPI_KEY}&offset=0`;
     const res = await fetch(url);
     const result = await res.json();

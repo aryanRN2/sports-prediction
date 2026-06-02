@@ -17,8 +17,8 @@ export async function GET(request: Request) {
     
     console.log('Cron triggered: Syncing matches and results...');
     
-    // 2. Perform Sync Operations
-    const syncRes = await syncUpcomingMatches();
+    // 2. Perform Sync Operations (forcing sync on cron run)
+    const syncRes = await syncUpcomingMatches(true);
     const resultRes = await checkAndSyncResults();
     
     return NextResponse.json({
